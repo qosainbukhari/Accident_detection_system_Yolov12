@@ -258,5 +258,4 @@ This repository is well suited for a final year project, academic demonstration,
 ## License
 
 This project is intended for academic and demonstration use.
-# Accident_detection_system
-# Accident_detection_system_Yolov12
+
