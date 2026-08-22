@@ -1,0 +1,25 @@
+# YOLOv12 Class Definitions
+# Used by DetectionEngine to map class IDs → labels
+
+nc: 3
+names:
+  0: fire
+  1: moderate
+  2: severe
+
+# Class descriptions
+descriptions:
+  fire:   "Vehicle or surroundings on fire – CRITICAL emergency"
+  moderate: "Moderate collision – moderate damage"
+  severe: "Severe crash with likely injuries or fatality – HIGH emergency"
+
+# Alert policy
+alert_classes:
+  - fire
+  - severe
+
+# UI colors (hex)
+colors:
+  fire:   "#dc2626"
+  moderate: "#f97316"
+  severe: "#b91c1c"

@@ -1,0 +1,20 @@
+Alembic database migration directory.
+
+Commands:
+  # Create new migration (auto-detect model changes)
+  alembic revision --autogenerate -m "describe_change"
+
+  # Apply all pending migrations
+  alembic upgrade head
+
+  # Roll back one revision
+  alembic downgrade -1
+
+  # Roll back all migrations
+  alembic downgrade base
+
+  # Show current revision
+  alembic current
+
+  # Show revision history
+  alembic history --verbose

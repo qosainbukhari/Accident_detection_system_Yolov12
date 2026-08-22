@@ -1,0 +1,9 @@
+path: /kaggle/input/datasets/qosainshah/data-final/dataset_FYP
+train: train/images
+val: valid/images
+test: test/images
+nc: 3
+names:
+  0: fire
+  1: moderate
+  2: severe

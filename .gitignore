@@ -1,0 +1,95 @@
+# ------------------------------
+# OS / Editor
+# ------------------------------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ------------------------------
+# Python
+# ------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+backend/.venv/
+frontend/.venv/
+
+# ------------------------------
+# Environment / Secrets
+# ------------------------------
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+
+# ------------------------------
+# Node / Frontend
+# ------------------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+
+# ------------------------------
+# Model and ML artifacts
+# ------------------------------
+backend/ml_model/best.pt
+backend/ml_model/*.onnx
+backend/ml_model/*.engine
+backend/ml_model/*.torchscript
+ml_training/runs/
+ml_training/**/.ipynb_checkpoints/
+Dataset/
+
+# ------------------------------
+# Runtime media artifacts
+# ------------------------------
+backend/static/uploads/
+backend/static/processed/
+backend/static/snapshots/
+static/uploads/
+static/processed/
+static/snapshots/
+
+# ------------------------------
+# Database artifacts
+# ------------------------------
+*.db
+*.sqlite
+*.sqlite3
+mysql_data/
+
+# ------------------------------
+# Build / packaging
+# ------------------------------
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ------------------------------
+# Logs
+# ------------------------------
+*.log
+logs/
+
+# ------------------------------
+# Notebook checkpoints
+# ------------------------------
+.ipynb_checkpoints/
