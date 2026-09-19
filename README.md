@@ -163,6 +163,27 @@ Primary backend variables:
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
 - `TWILIO_FROM_NUMBER`
+
+### AI emergency agent and WhatsApp
+
+The detection endpoints now create an asynchronous AI emergency assessment for
+alert-worthy events. Configure `GEMINI_API_KEY` to use Gemini; without a key,
+the system stores a deterministic rule-based assessment instead. To dispatch
+the assessment through Twilio WhatsApp, also set `TWILIO_ACCOUNT_SID`,
+`TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_TO`.
+
+After updating an existing database, apply the migration before starting the
+API:
+
+```bash
+cd backend
+alembic upgrade head
+```
+
+Reports are available through `GET /agent/report/{detection_id}` and
+`GET /agent/reports`. The frontend polls the report endpoint after an
+alert-worthy image or video detection and displays the assessment in the
+detection result and Alerts Center.
 - `EMERGENCY_CALL_TO`
 
 Recommended default behavior:
@@ -258,4 +279,3 @@ This repository is well suited for a final year project, academic demonstration,
 ## License
 
 This project is intended for academic and demonstration use.
-

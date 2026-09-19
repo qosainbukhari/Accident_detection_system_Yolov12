@@ -66,12 +66,14 @@ class DetectionEvent(Base):
     processing_ms      = Column(Integer)
     alert_sent         = Column(Boolean, default=False)
     call_triggered     = Column(Boolean, default=False)
+    whatsapp_sent      = Column(Boolean, default=False)
     created_at         = Column(DateTime, server_default=func.now(), index=True)
 
     user      = relationship("User", back_populates="events")
     alert     = relationship("Alert", back_populates="event", uselist=False, cascade="all, delete-orphan")
     call_log  = relationship("CallLog", back_populates="event", uselist=False, cascade="all, delete-orphan")
     video_log = relationship("VideoLog", back_populates="event", uselist=False, cascade="all, delete-orphan")
+    agent_report = relationship("AgentReport", back_populates="event", uselist=False, cascade="all, delete-orphan")
 
 
 # ─────────────────────────────────────────────
@@ -132,3 +134,31 @@ class VideoLog(Base):
     created_at           = Column(DateTime, server_default=func.now())
 
     event = relationship("DetectionEvent", back_populates="video_log")
+
+
+# ─────────────────────────────────────────────
+# 6. AI AGENT REPORTS
+# ─────────────────────────────────────────────
+class AgentReport(Base):
+    """Structured emergency assessment and WhatsApp dispatch outcome."""
+    __tablename__ = "agent_reports"
+
+    id                   = Column(Integer, primary_key=True, index=True)
+    detection_id         = Column(Integer, ForeignKey("detection_events.id", ondelete="CASCADE"),
+                                  nullable=False, unique=True, index=True)
+    incident_level       = Column(String(20), index=True)
+    situation_summary    = Column(Text)
+    visible_hazards      = Column(JSON)
+    recommended_services = Column(JSON)
+    immediate_actions    = Column(JSON)
+    casualty_risk        = Column(String(20))
+    full_report          = Column(Text)
+    model_used           = Column(String(60))
+    llm_error            = Column(Text)
+    processing_ms        = Column(Integer)
+    whatsapp_sent        = Column(Boolean, default=False, index=True)
+    whatsapp_sid         = Column(String(64))
+    whatsapp_error       = Column(Text)
+    created_at           = Column(DateTime, server_default=func.now(), index=True)
+
+    event = relationship("DetectionEvent", back_populates="agent_report")

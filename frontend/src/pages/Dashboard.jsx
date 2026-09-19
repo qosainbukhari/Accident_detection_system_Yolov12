@@ -9,7 +9,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import {
-  EyeIcon, BellAlertIcon, PhoneIcon, CalendarDaysIcon,
+  EyeIcon, BellAlertIcon, PhoneIcon, CalendarDaysIcon, SparklesIcon, ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 
 const CustomTooltip = ({ active, payload, label }) => {
@@ -71,11 +71,13 @@ export default function Dashboard() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
         <StatsCard label="Total Detections" value={stats?.total}       icon={EyeIcon}          accent="#6366f1" />
         <StatsCard label="Today"            value={stats?.today}       icon={CalendarDaysIcon}  accent="#10b981" />
         <StatsCard label="Email Alerts"     value={stats?.alerts_sent} icon={BellAlertIcon}     accent="#ef4444" />
         <StatsCard label="Emergency Calls"  value={stats?.calls_made}  icon={PhoneIcon}         accent="#8b5cf6" />
+        <StatsCard label="AI Reports"        value={stats?.ai_reports}   icon={SparklesIcon}      accent="#d946ef" />
+        <StatsCard label="WhatsApp Sent"     value={stats?.whatsapp_sent} icon={ChatBubbleLeftRightIcon} accent="#22c55e" />
       </div>
 
       {/* Confidence bar */}

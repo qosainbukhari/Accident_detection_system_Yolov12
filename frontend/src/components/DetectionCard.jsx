@@ -1,7 +1,7 @@
 import SeverityBadge from "./SeverityBadge";
 import { fmtDate, truncate } from "../utils/helpers";
 import { API_BASE, CLASS_CONFIG } from "../utils/constants";
-import { PhotoIcon, VideoCameraIcon, BellAlertIcon, PhoneIcon } from "@heroicons/react/24/outline";
+import { PhotoIcon, VideoCameraIcon, BellAlertIcon, PhoneIcon, ChatBubbleLeftRightIcon, SparklesIcon } from "@heroicons/react/24/outline";
 
 export default function DetectionCard({ event, onDelete, isAdmin }) {
   const isVideo = event.media_type === "video";
@@ -50,7 +50,7 @@ export default function DetectionCard({ event, onDelete, isAdmin }) {
         </p>
 
         {/* Indicators */}
-        {(event.alert_sent || event.call_triggered) && (
+        {(event.alert_sent || event.call_triggered || event.whatsapp_sent || event.agent_report) && (
           <div className="flex gap-1.5 flex-wrap">
             {event.alert_sent && (
               <span className="flex items-center gap-1 text-[10px] font-medium
@@ -64,6 +64,16 @@ export default function DetectionCard({ event, onDelete, isAdmin }) {
                                text-violet-400 bg-violet-500/10 border border-violet-500/20
                                px-2 py-0.5 rounded-full">
                 <PhoneIcon className="w-3 h-3" /> Called
+              </span>
+            )}
+            {event.whatsapp_sent && (
+              <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                <ChatBubbleLeftRightIcon className="w-3 h-3" /> WhatsApp
+              </span>
+            )}
+            {event.agent_report && (
+              <span className="flex items-center gap-1 text-[10px] font-medium text-fuchsia-400 bg-fuchsia-500/10 border border-fuchsia-500/20 px-2 py-0.5 rounded-full" title={`AI level: ${event.agent_report.incident_level || "unknown"}`}>
+                <SparklesIcon className="w-3 h-3" /> AI
               </span>
             )}
           </div>

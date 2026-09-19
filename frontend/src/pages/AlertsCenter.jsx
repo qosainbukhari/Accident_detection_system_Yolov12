@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { alertApi } from "../api/alertApi";
+import { agentApi } from "../api/agentApi";
 import { useAuth } from "../context/AuthContext";
 import { fmtDate } from "../utils/helpers";
 import toast from "react-hot-toast";
 import {
   BellAlertIcon, PhoneIcon, CheckCircleIcon,
-  XCircleIcon, ClockIcon, BeakerIcon, InboxIcon,
+  XCircleIcon, ClockIcon, BeakerIcon,   InboxIcon, ChatBubbleLeftRightIcon,
 } from "@heroicons/react/24/outline";
 
 const STATUS_MAP = {
@@ -33,30 +34,35 @@ export default function AlertsCenter() {
   const [tab,     setTab]    = useState("email");
   const [emails,  setEmails] = useState([]);
   const [calls,   setCalls]  = useState([]);
+  const [waLogs,  setWaLogs]  = useState([]);
   const [loading, setLoading]= useState(true);
   const [testing, setTesting]= useState(false);
 
   useEffect(() => {
-    Promise.all([alertApi.getAlerts(), alertApi.getCallLogs()])
-      .then(([e, c]) => { setEmails(e.data); setCalls(c.data); })
+    Promise.all([alertApi.getAlerts(), alertApi.getCallLogs(), agentApi.getReports(0, 50, true)])
+      .then(([e, c, w]) => { setEmails(e.data); setCalls(c.data); setWaLogs(w.data); })
       .finally(() => setLoading(false));
   }, []);
 
   const triggerTest = async (type) => {
     setTesting(true);
     try {
-      type === "email" ? await alertApi.testEmail() : await alertApi.testCall();
+      if (type === "email") await alertApi.testEmail();
+      else if (type === "call") await alertApi.testCall();
+      else await agentApi.testWhatsApp();
       toast.success(`Test ${type} dispatched!`);
     } catch (err) {
       toast.error(err.response?.data?.detail || `Test ${type} failed`);
     } finally { setTesting(false); }
   };
 
-  const list = tab === "email" ? emails : calls;
+  const list = tab === "email" ? emails : tab === "calls" ? calls : waLogs;
 
   const cols = tab === "email"
     ? ["ID", "Event #", "Recipient", "Subject", "Status", "Time"]
-    : ["ID", "Event #", "To", "SID", "Status", "Time"];
+    : tab === "calls"
+      ? ["ID", "Event #", "To", "SID", "Status", "Time"]
+      : ["ID", "Event #", "Level", "Services", "Status", "Time"];
 
   const row = (item) => tab === "email"
     ? [
@@ -67,12 +73,19 @@ export default function AlertsCenter() {
         item.status,
         fmtDate(item.created_at),
       ]
-    : [
+    : tab === "calls" ? [
         `#${item.id}`,
         `#${item.detection_id}`,
         item.to_number ?? "—",
         item.twilio_call_sid ? `${item.twilio_call_sid.slice(0, 16)}…` : "—",
         item.call_status,
+        fmtDate(item.created_at),
+      ] : [
+        `#${item.id}`,
+        `#${item.detection_id}`,
+        item.incident_level ?? "—",
+        (item.recommended_services ?? []).join(", ") || "—",
+        item.whatsapp_sent ? "sent" : "failed",
         fmtDate(item.created_at),
       ];
 
@@ -95,6 +108,10 @@ export default function AlertsCenter() {
               className="btn btn-ghost text-xs">
               <BeakerIcon className="w-4 h-4" /> Test Call
             </button>
+            <button onClick={() => triggerTest("WhatsApp")} disabled={testing}
+              className="btn btn-ghost text-xs">
+              <ChatBubbleLeftRightIcon className="w-4 h-4" /> Test WhatsApp
+            </button>
           </div>
         )}
       </div>
@@ -104,6 +121,7 @@ export default function AlertsCenter() {
         {[
           { key: "email", icon: BellAlertIcon, label: "Email Alerts", count: emails.length },
           { key: "calls", icon: PhoneIcon,     label: "Call Logs",    count: calls.length  },
+          { key: "whatsapp", icon: ChatBubbleLeftRightIcon, label: "WhatsApp", count: waLogs.length },
         ].map(({ key, icon: Icon, label, count }) => (
           <button key={key} onClick={() => setTab(key)}
             className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all
@@ -124,7 +142,7 @@ export default function AlertsCenter() {
       ) : list.length === 0 ? (
         <div className="card flex flex-col items-center py-12 gap-3">
           <InboxIcon className="w-8 h-8 text-slate-700" />
-          <p className="text-slate-500 text-sm">No {tab === "email" ? "email alerts" : "call logs"} yet</p>
+          <p className="text-slate-500 text-sm">No {tab === "email" ? "email alerts" : tab === "calls" ? "call logs" : "WhatsApp logs"} yet</p>
         </div>
       ) : (
         <div className="card p-0 overflow-hidden overflow-x-auto">

@@ -7,9 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from typing import Optional, Dict, Any
 from datetime import UTC, datetime
 
-from app.db.models import (
-    User, DetectionEvent, Alert, CallLog, VideoLog
-)
+from app.db.models import User, DetectionEvent, Alert, CallLog, VideoLog, AgentReport
 from app.core.security import hash_password
 
 
@@ -216,3 +214,92 @@ def create_video_log(db: Session, data: Dict[str, Any]) -> VideoLog:
     db.commit()
     db.refresh(log)
     return log
+
+
+def get_video_log(db: Session, detection_id: int) -> Optional[VideoLog]:
+    return db.query(VideoLog).filter(VideoLog.detection_id == detection_id).first()
+
+
+def create_agent_report(db: Session, data: Dict[str, Any]) -> AgentReport:
+    """Persist or replace the report for one detection event."""
+    existing = db.query(AgentReport).filter(
+        AgentReport.detection_id == data.get("detection_id")
+    ).first()
+    if existing:
+        for key, value in data.items():
+            if hasattr(existing, key):
+                setattr(existing, key, value)
+        db.commit()
+        db.refresh(existing)
+        return existing
+    report = AgentReport(**data)
+    db.add(report)
+    db.commit()
+    db.refresh(report)
+    return report
+
+
+def create_pending_agent_report(db: Session, detection_id: int) -> AgentReport:
+    """Make the report visible before asynchronous assessment begins."""
+    return create_agent_report(db, {
+        "detection_id": detection_id,
+        "incident_level": "PENDING",
+        "situation_summary": "AI emergency assessment is in progress.",
+        "visible_hazards": [],
+        "recommended_services": [],
+        "immediate_actions": [],
+        "casualty_risk": "unknown",
+        "model_used": "pending",
+        "processing_ms": 0,
+        "whatsapp_sent": False,
+    })
+
+
+def get_agent_report(db: Session, detection_id: int, user_id: Optional[int] = None) -> Optional[AgentReport]:
+    query = db.query(AgentReport).join(DetectionEvent).filter(
+        AgentReport.detection_id == detection_id
+    )
+    if user_id is not None:
+        query = query.filter(DetectionEvent.user_id == user_id)
+    return query.first()
+
+
+def get_agent_reports(db: Session, skip: int = 0, limit: int = 20,
+                      user_id: Optional[int] = None, whatsapp_only: bool = False):
+    query = db.query(AgentReport).join(DetectionEvent)
+    if user_id is not None:
+        query = query.filter(DetectionEvent.user_id == user_id)
+    if whatsapp_only:
+        query = query.filter(AgentReport.whatsapp_sent.is_(True))
+    return query.order_by(desc(AgentReport.created_at)).offset(skip).limit(limit).all()
+
+
+def count_agent_reports(db: Session, user_id: Optional[int] = None) -> int:
+    query = db.query(AgentReport).join(DetectionEvent)
+    if user_id is not None:
+        query = query.filter(DetectionEvent.user_id == user_id)
+    return query.count()
+
+
+def mark_whatsapp_sent(db: Session, event_id: int) -> None:
+    event = get_detection_event(db, event_id)
+    if event:
+        event.whatsapp_sent = True
+        db.commit()
+
+
+def count_events_today(db: Session) -> int:
+    today = datetime.now(UTC).date()
+    from sqlalchemy import func as _func
+    return db.query(DetectionEvent).filter(
+        _func.date(DetectionEvent.created_at) == today
+    ).count()
+
+
+def count_recent_by_class(db: Session, detected_class: str, hours: int = 24) -> int:
+    from datetime import timedelta
+    since = datetime.now(UTC) - timedelta(hours=hours)
+    return db.query(DetectionEvent).filter(
+        DetectionEvent.detected_class == detected_class,
+        DetectionEvent.created_at >= since,
+    ).count()

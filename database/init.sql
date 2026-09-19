@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS detection_events (
   processing_ms      INT,
   alert_sent         BOOLEAN DEFAULT FALSE,
   call_triggered     BOOLEAN DEFAULT FALSE,
+  whatsapp_sent      BOOLEAN DEFAULT FALSE,
   created_at         DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_de_class   (detected_class),
@@ -109,4 +110,30 @@ CREATE TABLE IF NOT EXISTS video_processing_logs (
   created_at           DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (detection_id) REFERENCES detection_events(id) ON DELETE CASCADE,
   INDEX idx_vpl_detection (detection_id)
+);
+
+-- ─────────────────────────────────────────────────
+-- 6. AI AGENT REPORTS
+-- ─────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS agent_reports (
+  id                   INT AUTO_INCREMENT PRIMARY KEY,
+  detection_id         INT NOT NULL UNIQUE,
+  incident_level       VARCHAR(20),
+  situation_summary    TEXT,
+  visible_hazards      JSON,
+  recommended_services JSON,
+  immediate_actions    JSON,
+  casualty_risk        VARCHAR(20),
+  full_report          TEXT,
+  model_used           VARCHAR(60),
+  llm_error            TEXT,
+  processing_ms        INT,
+  whatsapp_sent        BOOLEAN DEFAULT FALSE,
+  whatsapp_sid         VARCHAR(64),
+  whatsapp_error       TEXT,
+  created_at           DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (detection_id) REFERENCES detection_events(id) ON DELETE CASCADE,
+  INDEX idx_ar_level (incident_level),
+  INDEX idx_ar_whatsapp (whatsapp_sent),
+  INDEX idx_ar_created (created_at)
 );

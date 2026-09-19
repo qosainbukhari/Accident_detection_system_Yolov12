@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { detectionApi } from "../api/detectionApi";
+import { pollAgentReport } from "../api/agentApi";
+import AgentReportCard from "../components/AgentReportCard";
 import DropZone from "../components/DropZone";
 import SeverityBadge from "../components/SeverityBadge";
 import ProgressBar from "../components/ProgressBar";
@@ -17,9 +19,11 @@ export default function VideoDetect() {
   const [progress,setProgress]= useState(0);
   const [stage,   setStage]   = useState("");
   const [loading, setLoading] = useState(false);
+  const [report, setReport] = useState(null);
+  const [agentLoading, setAgentLoading] = useState(false);
 
-  const onFile = (f) => { setFile(f); setResult(null); setProgress(0); setStage(""); };
-  const reset  = ()  => { setFile(null); setResult(null); setProgress(0); setStage(""); };
+  const onFile = (f) => { setFile(f); setResult(null); setReport(null); setAgentLoading(false); setProgress(0); setStage(""); };
+  const reset  = ()  => { setFile(null); setResult(null); setReport(null); setAgentLoading(false); setProgress(0); setStage(""); };
 
   const process = async () => {
     if (!file) return;
@@ -32,6 +36,13 @@ export default function VideoDetect() {
       });
       setProgress(100); setStage("Complete");
       setResult(data);
+      if (data.agent_pending && data.event_id) {
+        setAgentLoading(true);
+        pollAgentReport(data.event_id)
+          .then(r => { setReport(r); if (r?.whatsapp_sent) toast.success("WhatsApp alert dispatched"); })
+          .catch(() => toast.error("AI emergency report could not be loaded"))
+          .finally(() => setAgentLoading(false));
+      }
       data.alert_triggered
         ? showEmergencyToast(data.dominant_class, data.avg_confidence)
         : toast.success(`Done — dominant class: ${data.dominant_class}`);
@@ -114,6 +125,7 @@ export default function VideoDetect() {
               </div>
 
               {/* Class stats */}
+              <AgentReportCard report={report} loading={agentLoading} />
               <div className="card">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Frame Distribution</p>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

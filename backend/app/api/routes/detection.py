@@ -19,6 +19,7 @@ from app.db import crud
 from app.core.detection_engine import DetectionEngine
 from app.core.video_processor import VideoProcessor
 from app.core.alert_service import maybe_send_alert
+from app.core.emergency_agent import run_emergency_agent
 from app.api.deps import get_current_user, require_admin
 from app.config import settings
 
@@ -26,6 +27,40 @@ router = APIRouter()
 
 ALLOWED_IMG = {"jpg", "jpeg", "png", "webp"}
 ALLOWED_VID = {"mp4", "avi", "mov", "mkv"}
+
+
+def _serialise_event(event) -> dict:
+    data = {
+        "id": event.id,
+        "user_id": event.user_id,
+        "media_type": event.media_type,
+        "original_filename": event.original_filename,
+        "processed_filename": event.processed_filename,
+        "detected_class": str(getattr(event.detected_class, "value", event.detected_class)),
+        "confidence": event.confidence,
+        "bounding_boxes": event.bounding_boxes,
+        "snapshot_path": event.snapshot_path,
+        "total_frames": event.total_frames,
+        "detected_frames": event.detected_frames,
+        "dominant_class": event.dominant_class,
+        "processing_ms": event.processing_ms,
+        "alert_sent": event.alert_sent,
+        "call_triggered": event.call_triggered,
+        "whatsapp_sent": event.whatsapp_sent,
+        "created_at": event.created_at,
+        "agent_report": None,
+    }
+    report = getattr(event, "agent_report", None)
+    if report:
+        data["agent_report"] = {
+            "id": report.id,
+            "incident_level": report.incident_level,
+            "situation_summary": report.situation_summary,
+            "casualty_risk": report.casualty_risk,
+            "recommended_services": report.recommended_services,
+            "whatsapp_sent": report.whatsapp_sent,
+        }
+    return data
 
 
 def _check_file(filename: str, allowed: set) -> str:
@@ -108,6 +143,8 @@ async def detect_image(
 
     # Background: email + call alerts
     if result["alert_required"]:
+        if settings.AGENT_ENABLED:
+            crud.create_pending_agent_report(db, event.id)
         bg.add_task(
             maybe_send_alert,
             event.id,
@@ -116,6 +153,15 @@ async def detect_image(
             file.filename,
             db,
             image_path=proc_path,
+        )
+        bg.add_task(
+            run_emergency_agent,
+            event.id,
+            result["detected_class"],
+            result["confidence"],
+            proc_path,
+            "image",
+            file.filename or "",
         )
 
     return {
@@ -126,6 +172,7 @@ async def detect_image(
         "processed_url":   f"/static/processed/{proc_name}",
         "processing_ms":   result["processing_ms"],
         "alert_triggered": result["alert_required"],
+        "agent_pending":   bool(result["alert_required"] and settings.AGENT_ENABLED),
     }
 
 
@@ -201,6 +248,8 @@ async def detect_video(
 
     # Alerts
     if result["alert_required"]:
+        if settings.AGENT_ENABLED:
+            crud.create_pending_agent_report(db, event.id)
         bg.add_task(
             maybe_send_alert,
             event.id,
@@ -209,6 +258,15 @@ async def detect_video(
             file.filename,
             db,
             image_path=result.get("snapshot_path"),
+        )
+        bg.add_task(
+            run_emergency_agent,
+            event.id,
+            result["dominant_class"],
+            result["avg_confidence"],
+            result.get("snapshot_path"),
+            "video",
+            file.filename or "",
         )
 
     snap_url = None
@@ -224,6 +282,7 @@ async def detect_video(
         "processed_video_url": f"/static/processed/{result['output_name']}",
         "snapshot_url":        snap_url,
         "alert_triggered":     result["alert_required"],
+        "agent_pending":       bool(result["alert_required"] and settings.AGENT_ENABLED),
     }
 
 
@@ -240,7 +299,7 @@ def get_history(
     """Paginated list of all detection events."""
     owner_id = None if user.role == "admin" else user.id
     events = crud.get_detection_events(db, skip=skip, limit=limit, user_id=owner_id)
-    return events
+    return [_serialise_event(event) for event in events]
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -257,7 +316,7 @@ def get_event(
     event = crud.get_detection_event(db, event_id, user_id=owner_id)
     if not event:
         raise HTTPException(404, f"Event #{event_id} not found")
-    return event
+    return _serialise_event(event)
 
 
 # ─────────────────────────────────────────────────────────────────

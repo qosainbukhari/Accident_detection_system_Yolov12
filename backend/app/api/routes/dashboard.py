@@ -7,7 +7,7 @@ from sqlalchemy import func
 from datetime import UTC, datetime, timedelta
 
 from app.db.database import get_db
-from app.db.models import DetectionEvent, CallLog
+from app.db.models import DetectionEvent, CallLog, AgentReport
 from app.api.deps import get_current_user
 
 router = APIRouter()
@@ -36,6 +36,11 @@ def get_stats(
         calls_query = calls_query.filter(DetectionEvent.user_id == user.id)
     calls    = calls_query.count()
     avg_conf = db.query(func.avg(DetectionEvent.confidence)).filter(owner_filter).scalar() or 0.0
+    reports_query = db.query(AgentReport).join(DetectionEvent)
+    if user.role != "admin":
+        reports_query = reports_query.filter(DetectionEvent.user_id == user.id)
+    ai_reports = reports_query.count()
+    whatsapp_sent = reports_query.filter(AgentReport.whatsapp_sent.is_(True)).count()
 
     by_class = {}
     for cls in ["fire", "moderate", "severe"]:
@@ -66,6 +71,8 @@ def get_stats(
         "alerts_sent":    alerts,
         "calls_made":     calls,
         "avg_confidence": round(float(avg_conf) * 100, 1),
+        "ai_reports":     ai_reports,
+        "whatsapp_sent":  whatsapp_sent,
         "class_counts":   by_class,
         "recent_events":  recent_list,
     }

@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db.database import Base, engine
 from app.core.detection_engine import DetectionEngine
-from app.api.routes import auth, detection, alerts, dashboard, users
+from app.api.routes import auth, detection, alerts, dashboard, users, agent
 from app.config import settings
 
 for directory in ["static", "static/uploads", "static/processed", "static/snapshots"]:
@@ -34,7 +34,17 @@ async def lifespan(app: FastAPI):
     print("=" * 50)
     print("[STARTUP] ✅ Database ready")
     print("[STARTUP] ✅ YOLOv12 model loaded")
-    print("[STARTUP] ✅ AI Accident Detection API v2.0 running")
+    print(f"[STARTUP] {'✅' if settings.AGENT_ENABLED and settings.GEMINI_API_KEY.strip() else '⚠️ '} "
+          f"AI Emergency Agent {'enabled' if settings.AGENT_ENABLED and settings.GEMINI_API_KEY.strip() else 'inactive'}")
+    whatsapp_ready = (
+        settings.WHATSAPP_ENABLED
+        and settings.TWILIO_ACCOUNT_SID.strip().startswith("AC")
+        and settings.TWILIO_AUTH_TOKEN.strip()
+        and settings.TWILIO_WHATSAPP_TO.strip()
+    )
+    print(f"[STARTUP] {'✅' if whatsapp_ready else '⚠️ '} "
+          f"Twilio WhatsApp {'configured' if whatsapp_ready else 'inactive'}")
+    print("[STARTUP] ✅ AI Accident Detection API v2.1 running")
     print("=" * 50)
 
     yield
@@ -46,7 +56,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="AI Accident Detection & Emergency Response API",
     description="YOLOv12-powered accident detection with automated email + call alerts",
-    version="2.0.0",
+    version="2.1.0",
     lifespan=lifespan,
     docs_url="/docs" if settings.ENABLE_DOCS else None,
     redoc_url="/redoc" if settings.ENABLE_DOCS else None,
@@ -82,6 +92,7 @@ app.include_router(detection.router,  prefix="/detection",  tags=["Detection"])
 app.include_router(alerts.router,     prefix="/alerts",     tags=["Alerts"])
 app.include_router(dashboard.router,  prefix="/dashboard",  tags=["Dashboard"])
 app.include_router(users.router,      prefix="/users",      tags=["Users"])
+app.include_router(agent.router,       prefix="/agent",       tags=["AI Agent"])
 
 
 # ── Health Check ──────────────────────────────────────────────────
@@ -90,5 +101,6 @@ def health_check():
     return {
         "status":  "ok",
         "model":   "yolov12",
-        "version": "2.0.0",
+        "version": "2.1.0",
+        "agent":   settings.AGENT_ENABLED,
     }

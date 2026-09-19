@@ -43,6 +43,19 @@ class Settings(BaseSettings):
     TWILIO_FROM_NUMBER: str = ""
     EMERGENCY_CALL_TO: str = ""
 
+    # AI emergency agent
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-3.6-flash"
+    AGENT_ENABLED: bool = True
+    AGENT_TIMEOUT_SECONDS: int = 90
+
+    # WhatsApp (Twilio)
+    WHATSAPP_ENABLED: bool = True
+    TWILIO_WHATSAPP_FROM: str = "whatsapp:+14155238886"
+    TWILIO_WHATSAPP_TO: str = ""
+    WHATSAPP_INCLUDE_MEDIA: bool = False
+    PUBLIC_BASE_URL: str = ""
+
     # File Storage
     UPLOAD_DIR: str = "static/uploads"
     PROCESSED_DIR: str = "static/processed"
