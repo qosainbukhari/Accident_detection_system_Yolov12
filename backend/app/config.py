@@ -61,7 +61,9 @@ class Settings(BaseSettings):
     PUBLIC_BASE_URL: str = ""
 
     # File Storage
-    UPLOAD_DIR: str = "static/uploads"
+    # Original uploads stay outside the public static root. Generated outputs
+    # are safe-to-serve artifacts and retain the existing dashboard URLs.
+    UPLOAD_DIR: str = "data/uploads"
     PROCESSED_DIR: str = "static/processed"
     SNAPSHOTS_DIR: str = "static/snapshots"
     MAX_UPLOAD_SIZE_MB: int = 100

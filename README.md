@@ -70,17 +70,28 @@ docker-compose.yml       Multi-service local deployment
 
 ### Docker Recommended
 
-1. Create the root environment file:
+1. Create the backend environment file for local development:
 
 ```bash
-cp backend/.env.example .env
+cp backend/.env.example backend/.env
 ```
 
-2. Set the required values in `.env`:
+For Docker Compose, create a separate root `.env` containing at least
+`MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD`, and `SECRET_KEY`; do not copy a real
+backend `.env` into the repository root.
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+2. For Docker Compose, create a separate root `.env` (do not copy the backend
+   file) and set at least:
 
 - `SECRET_KEY`
 - `MYSQL_ROOT_PASSWORD`
 - `MYSQL_PASSWORD`
+- `MYSQL_DATABASE` (optional; defaults to `accident_db`)
+- `MYSQL_USER` (optional; defaults to `accident_app`)
 - Optional SMTP settings
 - `ENABLE_DOCS=true` if you want Swagger UI locally
 

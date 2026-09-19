@@ -129,6 +129,9 @@ async def detect_image(
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if frame is None:
         raise HTTPException(400, "Cannot decode image. File may be corrupt or unsupported.")
+    height, width = frame.shape[:2]
+    if height * width > settings.MAX_IMAGE_PIXELS:
+        raise HTTPException(413, "Image dimensions exceed the configured pixel limit")
 
     # Run inference
     engine = DetectionEngine.get_instance()
@@ -205,8 +208,8 @@ async def detect_video(
 
     # Save uploaded video
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
-    safe_name = Path(file.filename or "video").name.replace("\x00", "")
-    upload_name = f"vid_{uuid.uuid4().hex[:8]}_{safe_name}"
+    ext = Path(file.filename or "video").suffix.lower()
+    upload_name = f"vid_{uuid.uuid4().hex}{ext}"
     upload_path = os.path.join(settings.UPLOAD_DIR, upload_name)
     await _save_upload(file, upload_path, settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024)
 

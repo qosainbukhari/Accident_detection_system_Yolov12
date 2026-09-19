@@ -3,44 +3,23 @@
  *
  * Provides: user, token, loading, login(), logout(), isAdmin, isOperator
  */
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState } from "react";
 import { authApi } from "../api/authApi";
+import { clearAccessToken, setAccessToken } from "../api/tokenStore";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => {
-    try {
-      const raw = localStorage.getItem("user");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  });
-
-  const [token,   setToken]   = useState(() => localStorage.getItem("token") || null);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  // On mount: if we have a token but no user object, re-fetch from /auth/me
-  useEffect(() => {
-    if (token && !user) {
-      authApi
-        .getMe()
-        .then((r) => {
-          setUser(r.data);
-          localStorage.setItem("user", JSON.stringify(r.data));
-        })
-        .catch(() => logout());
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const login = async (username, password) => {
     setLoading(true);
     try {
       // authApi.login sends x-www-form-urlencoded (required by FastAPI OAuth2)
       const { data } = await authApi.login(username, password);
-      localStorage.setItem("token", data.access_token);
-      localStorage.setItem("user",  JSON.stringify(data.user));
+      setAccessToken(data.access_token);
       setToken(data.access_token);
       setUser(data.user);
       return data;
@@ -51,8 +30,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearAccessToken();
     setToken(null);
     setUser(null);
   };
