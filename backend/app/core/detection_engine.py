@@ -3,10 +3,13 @@ detection_engine.py – YOLOv12 Image & Video Inference Engine (Singleton)
 """
 import cv2
 import time
+import logging
 import numpy as np
 from pathlib import Path
 from ultralytics import YOLO
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────
 CLASS_NAMES  = ["fire", "moderate", "severe"]
@@ -36,14 +39,21 @@ class DetectionEngine:
 
     def __init__(self):
         model_path = Path(settings.MODEL_PATH)
-        self.model = YOLO(model_path) if model_path.is_file() else None
+        self.model = None
+        if model_path.is_file():
+            try:
+                self.model = YOLO(model_path)
+            except (OSError, RuntimeError, ValueError) as exc:
+                logger.error("Unable to load detection model: %s", exc)
+        else:
+            logger.warning("Detection model not found at %s; inference is disabled", model_path)
         self.conf  = settings.DETECTION_CONFIDENCE
         self.iou   = settings.IOU_THRESHOLD
         self.sz    = settings.IMG_SIZE
         if self.model is None:
-            print(f"[Engine] Model not found at {model_path}; inference is disabled.")
+            pass
         else:
-            print(f"[Engine] YOLOv12 loaded: {settings.MODEL_PATH}")
+            logger.info("Detection model loaded from configured path")
 
     # ── Core prediction ──────────────────────────────────────────────────
     def predict_frame(self, frame: np.ndarray) -> dict:
@@ -69,13 +79,24 @@ class DetectionEngine:
                 "alert_required": False,
             }
 
-        results = self.model(
-            frame,
-            conf=self.conf,
-            iou=self.iou,
-            imgsz=self.sz,
-            verbose=False
-        )[0]
+        try:
+            results = self.model(
+                frame,
+                conf=self.conf,
+                iou=self.iou,
+                imgsz=self.sz,
+                verbose=False
+            )[0]
+        except (OSError, RuntimeError, ValueError) as exc:
+            logger.warning("Frame inference failed: %s", exc)
+            return {
+                "detected_class": "no_detection",
+                "confidence": 0.0,
+                "bounding_boxes": [],
+                "annotated_frame": frame.copy(),
+                "processing_ms": int((time.time() - t0) * 1000),
+                "alert_required": False,
+            }
         ms = int((time.time() - t0) * 1000)
 
         boxes    = []

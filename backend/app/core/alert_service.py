@@ -4,6 +4,7 @@ Uses Gmail SMTP with App Password (or any SMTP provider)
 """
 import os
 import smtplib
+import logging
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -13,13 +14,16 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import crud
+from app.db.database import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 def maybe_send_alert(
     event_id: int,
     detected_class: str,
     confidence: float,
     filename: str,
-    db: Session,
+    db: Session | None = None,
     image_path: str | None = None,
 ) -> None:
     """
@@ -28,7 +32,13 @@ def maybe_send_alert(
     The only class we ignore is `no_detection`, which never reaches this path
     in normal detection flow.
     """
-    _send_email(event_id, detected_class, confidence, filename, db, image_path=image_path)
+    owns_session = db is None
+    db = db or SessionLocal()
+    try:
+        _send_email(event_id, detected_class, confidence, filename, db, image_path=image_path)
+    finally:
+        if owns_session:
+            db.close()
 
 
 def _send_email(
@@ -44,7 +54,7 @@ def _send_email(
     alert_email_to = (settings.ALERT_EMAIL_TO or "").strip()
 
     if not smtp_user or not smtp_password or not alert_email_to:
-        print("[EMAIL] SMTP credentials not configured, skipping.")
+        logger.info("SMTP credentials are not configured; email alert skipped")
         return "skipped"
 
     safe_class = escape(cls.upper())
@@ -157,14 +167,14 @@ def _send_email(
             srv.login(smtp_user, smtp_password)
             srv.sendmail(smtp_user, alert_email_to, msg.as_string())
         status = "sent"
-        print(f"[EMAIL] ✅ Alert sent for event #{event_id} → {alert_email_to}")
+        logger.info("Email alert sent for event %s", event_id)
 
         if db:
             crud.mark_alert_sent(db, event_id)
 
     except Exception as e:
         error = str(e)
-        print(f"[EMAIL] ❌ FAILED for event #{event_id}: {e}")
+        logger.warning("Email alert failed for event %s: %s", event_id, e)
 
     finally:
         if db:
@@ -179,6 +189,6 @@ def _send_email(
                     error=error,
                 )
             except Exception as log_err:
-                print(f"[EMAIL] Failed to log alert: {log_err}")
+                logger.warning("Failed to persist email alert status: %s", log_err)
 
         return status

@@ -27,6 +27,8 @@ router = APIRouter()
 
 ALLOWED_IMG = {"jpg", "jpeg", "png", "webp"}
 ALLOWED_VID = {"mp4", "avi", "mov", "mkv"}
+IMAGE_MIME = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "webp": "image/webp"}
+VIDEO_MIME = {"mp4": "video/mp4", "avi": "video/x-msvideo", "mov": "video/quicktime", "mkv": "video/x-matroska"}
 
 
 def _serialise_event(event) -> dict:
@@ -63,13 +65,17 @@ def _serialise_event(event) -> dict:
     return data
 
 
-def _check_file(filename: str, allowed: set) -> str:
+def _check_file(filename: str, allowed: set, content_type: str | None = None) -> str:
     """Validate file extension. Returns the extension."""
     if not filename or "." not in filename:
         raise HTTPException(400, "File has no extension")
     ext = filename.rsplit(".", 1)[-1].lower()
     if ext not in allowed:
         raise HTTPException(400, f"Unsupported type: .{ext}. Allowed: {sorted(allowed)}")
+    if content_type and content_type != "application/octet-stream":
+        mime_map = IMAGE_MIME if allowed == ALLOWED_IMG else VIDEO_MIME
+        if mime_map.get(ext) and content_type.lower() != mime_map[ext]:
+            raise HTTPException(400, "File content type does not match its extension")
     return ext
 
 
@@ -88,6 +94,12 @@ async def _save_upload(file: UploadFile, destination: str, max_bytes: int) -> No
         except FileNotFoundError:
             pass
         raise
+    except OSError as exc:
+        try:
+            os.remove(destination)
+        except FileNotFoundError:
+            pass
+        raise HTTPException(500, "Unable to store uploaded file") from exc
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -105,7 +117,7 @@ async def detect_image(
     Upload an image → YOLOv12 inference → return annotated result.
     Triggers an email alert for detected accident classes.
     """
-    _check_file(file.filename, ALLOWED_IMG)
+    _check_file(file.filename, ALLOWED_IMG, file.content_type)
 
     content = await file.read()
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
@@ -151,7 +163,6 @@ async def detect_image(
             result["detected_class"],
             result["confidence"],
             file.filename,
-            db,
             image_path=proc_path,
         )
         bg.add_task(
@@ -190,7 +201,7 @@ async def detect_video(
     """
     Upload a video → frame-by-frame YOLOv12 inference → return processed video.
     """
-    _check_file(file.filename, ALLOWED_VID)
+    _check_file(file.filename, ALLOWED_VID, file.content_type)
 
     # Save uploaded video
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
@@ -210,12 +221,12 @@ async def detect_video(
         except FileNotFoundError:
             pass
         raise HTTPException(400, str(exc))
-    except Exception as exc:
+    except Exception:
         try:
             os.remove(upload_path)
         except FileNotFoundError:
             pass
-        raise HTTPException(500, f"Video processing failed: {exc}")
+        raise HTTPException(500, "Video processing failed")
 
     # Save to DB
     event = crud.create_detection_event(db, {
@@ -256,7 +267,6 @@ async def detect_video(
             result["dominant_class"],
             result["avg_confidence"],
             file.filename,
-            db,
             image_path=result.get("snapshot_path"),
         )
         bg.add_task(

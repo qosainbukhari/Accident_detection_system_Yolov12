@@ -19,7 +19,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create directories
-RUN mkdir -p static/uploads static/processed static/snapshots
+RUN addgroup --system app && adduser --system --ingroup app app \
+    && mkdir -p static/processed static/snapshots data/uploads \
+    && chown -R app:app /app
+
+USER app
 
 EXPOSE 8000
 

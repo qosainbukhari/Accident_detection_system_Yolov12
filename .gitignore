@@ -38,6 +38,10 @@ frontend/.venv/
 !.env.example
 backend/.env
 frontend/.env
+*.pem
+*.key
+credentials*
+**/credentials*
 
 # ------------------------------
 # Node / Frontend
@@ -63,9 +67,14 @@ Dataset/
 backend/static/uploads/
 backend/static/processed/
 backend/static/snapshots/
+backend/data/uploads/
+backend/data/processed/
 static/uploads/
 static/processed/
 static/snapshots/
+uploads/
+media/
+node_modules/
 
 # ------------------------------
 # Database artifacts
@@ -73,6 +82,10 @@ static/snapshots/
 *.db
 *.sqlite
 *.sqlite3
+*.dump
+*.dump.sql
+*.sql.gz
+*.bak
 mysql_data/
 
 # ------------------------------

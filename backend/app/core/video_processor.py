@@ -4,8 +4,11 @@ video_processor.py – Extract frames → detect → reconstruct annotated video
 import cv2
 import os
 import uuid
+import logging
 from app.core.detection_engine import DetectionEngine
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class VideoProcessor:
@@ -54,7 +57,10 @@ class VideoProcessor:
         best_snap   = None
         best_conf   = 0.0
         frame_idx   = 0
-        stride      = 2          # run inference every 2nd frame for speed
+        stride      = max(1, settings.VIDEO_FRAME_STRIDE)
+        confirmation_frames = max(1, settings.VIDEO_CONFIRMATION_FRAMES)
+        consecutive_alerts = 0
+        confirmed_alert = False
 
         try:
             while True:
@@ -63,6 +69,8 @@ class VideoProcessor:
                     break
 
                 frame_idx += 1
+                if frame_idx > settings.MAX_VIDEO_FRAMES:
+                    raise ValueError("Video exceeds the configured frame limit")
 
                 if frame_idx % stride == 0:
                     result    = self.engine.predict_frame(frame)
@@ -79,6 +87,13 @@ class VideoProcessor:
                     if conf > best_conf:
                         best_conf = conf
                         best_snap = annotated.copy()
+
+                    if result["alert_required"]:
+                        consecutive_alerts += 1
+                        if consecutive_alerts >= confirmation_frames:
+                            confirmed_alert = True
+                    else:
+                        consecutive_alerts = 0
 
                     writer.write(annotated)
                 else:
@@ -126,5 +141,5 @@ class VideoProcessor:
             "class_stats":      stats,
             "avg_confidence":   avg_conf,
             "fps_processed":    round(fps / stride, 2),
-            "alert_required":   dominant in {"fire", "moderate", "severe"},
+            "alert_required":   confirmed_alert,
         }

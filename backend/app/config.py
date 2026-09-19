@@ -9,6 +9,7 @@ from pathlib import Path
 
 
 class Settings(BaseSettings):
+    APP_ENV: str = "development"
     # Database
     DATABASE_URL: str
 
@@ -17,6 +18,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://localhost"
+    TRUSTED_HOSTS: str = "localhost,127.0.0.1"
     ENABLE_DOCS: bool = False
 
     # YOLOv12 Model
@@ -28,6 +30,8 @@ class Settings(BaseSettings):
     # Alert Classes
     ALERT_CLASSES: str = "fire,moderate,severe"
     ALERT_COOLDOWN_SECONDS: int = 60
+    VIDEO_FRAME_STRIDE: int = 2
+    VIDEO_CONFIRMATION_FRAMES: int = 3
 
     # Email (SMTP)
     SMTP_HOST: str = "smtp.gmail.com"
@@ -61,6 +65,8 @@ class Settings(BaseSettings):
     PROCESSED_DIR: str = "static/processed"
     SNAPSHOTS_DIR: str = "static/snapshots"
     MAX_UPLOAD_SIZE_MB: int = 100
+    MAX_VIDEO_FRAMES: int = 9000
+    MAX_IMAGE_PIXELS: int = 25_000_000
     ALLOWED_IMAGE_TYPES: str = "jpg,jpeg,png,webp"
     ALLOWED_VIDEO_TYPES: str = "mp4,avi,mov,mkv"
 
