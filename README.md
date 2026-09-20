@@ -1,120 +1,63 @@
-# AI Accident Detection and Emergency Response System
+# AI Accident Detection & Emergency Response System
 
-A full-stack final year project for detecting road accidents in images and videos using a custom YOLO model, with secure user authentication, event history, analytics, and automated email notification support.
+An end-to-end web application that analyses uploaded road-scene images and videos with a custom YOLO model, records incidents, and presents results through a secure monitoring dashboard.
 
-## Overview
+This project is intended for academic demonstration and controlled local deployment. A model prediction supports human review; it is not a verified emergency-service dispatch or medical assessment.
 
-This project combines:
+## What it does
 
-- A FastAPI backend for inference, authentication, and persistence
-- A React frontend for detection, monitoring, and history review
-- A YOLO-based detection pipeline for `fire`, `moderate`, and `severe` classes
-- MySQL database storage for users, detections, alerts, and logs
-- SMTP email alerting for detected accident events
-- Optional mock call logging for admin test mode
+- Authenticated users upload images or videos for accident detection.
+- The model classifies detections as `fire`, `moderate`, or `severe`.
+- Images return annotated results immediately; videos run as background jobs with progress polling.
+- Events, confidence, boxes, media paths, statuses, and audit information are persisted.
+- Dashboards show history, alerts, analytics, and generated emergency assessments.
+- Optional SMTP email and Kapso/WhatsApp delivery can notify responders; mock mode is safe for demos.
+- Gemini can generate the assessment; a deterministic local fallback works without an API key.
 
-The system is designed for academic demonstration, evaluation, and local deployment.
+## Quick start with Docker
 
-## Key Features
+### Requirements
 
-- Image-based accident detection
-- Video-based accident detection with annotated output
-- Role-based authentication and protected routes
-- Detection history and alert logs
-- Dashboard and analytics views
-- Configurable email alerting
-- Optional mock call logging for controlled testing
+- Docker Engine with Compose
+- Model file at `backend/ml_model/best.pt`
 
-## Technology Stack
+### Configure
 
-- Backend: FastAPI, SQLAlchemy, Alembic, Pydantic
-- Frontend: React, Vite, Tailwind CSS
-- ML: Ultralytics YOLO, OpenCV, NumPy
-- Database: MySQL
-- Notifications: SMTP email, optional mock call logging
-- Deployment: Docker Compose
+Create a root `.env` for Compose and never commit it:
 
-## Model Class Contract
-
-The application expects the following class order:
-
-```text
-0 = fire
-1 = moderate
-2 = severe
+```env
+SECRET_KEY=replace-with-a-long-random-value
+MYSQL_ROOT_PASSWORD=replace-with-a-root-password
+MYSQL_PASSWORD=replace-with-an-app-password
+MYSQL_DATABASE=accident_db
+MYSQL_USER=accident_app
+ENABLE_DOCS=true
 ```
 
-If the class names or order change, the model and application logic must be updated together.
-
-## Repository Structure
-
-```text
-backend/                 FastAPI application, inference, DB layer, tests
-backend/alembic/         Database migrations
-backend/ml_model/        Model files and class contract
-frontend/                React application
-database/                MySQL init and seed scripts
-ml_training/             Training notebooks and artifacts
-docker-compose.yml       Multi-service local deployment
-```
-
-## Prerequisites
-
-- Docker Engine and Docker Compose, or
-- Manual setup with:
-  - Python 3.11+
-  - Node.js 18+
-  - npm
-
-## Quick Start
-
-### Docker Recommended
-
-1. Create the backend environment file for local development:
+Compose also references `backend/.env` for optional integrations. Create it:
 
 ```bash
-cp backend/.env.example backend/.env
+touch backend/.env
 ```
 
-For Docker Compose, create a separate root `.env` containing at least
-`MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD`, and `SECRET_KEY`; do not copy a real
-backend `.env` into the repository root.
+Add SMTP, Gemini, or Kapso values there only when intentionally enabling those integrations.
 
-```bash
-cp backend/.env.example backend/.env
-```
-
-2. For Docker Compose, create a separate root `.env` (do not copy the backend
-   file) and set at least:
-
-- `SECRET_KEY`
-- `MYSQL_ROOT_PASSWORD`
-- `MYSQL_PASSWORD`
-- `MYSQL_DATABASE` (optional; defaults to `accident_db`)
-- `MYSQL_USER` (optional; defaults to `accident_app`)
-- Optional SMTP settings
-- `ENABLE_DOCS=true` if you want Swagger UI locally
-
-3. Ensure the model file exists at:
-
-```text
-backend/ml_model/best.pt
-```
-
-4. Start the stack:
+### Start
 
 ```bash
 docker compose up --build
 ```
 
-5. Open the application:
+| Service | URL |
+| --- | --- |
+| Frontend | http://localhost |
+| API | http://localhost:8000 |
+| Health | http://localhost:8000/health |
+| Swagger UI | http://localhost:8000/docs when `ENABLE_DOCS=true` |
 
-- Frontend: http://localhost
-- Backend API: http://localhost:8000
-- Swagger UI: http://localhost:8000/docs when `ENABLE_DOCS=true`
-- Health check: http://localhost:8000/health
+Stop with `docker compose down`. Named volumes preserve MySQL and generated media. Use `docker compose down -v` only when intentionally removing local data.
 
-## Manual Setup
+## Manual development
 
 ### Backend
 
@@ -124,19 +67,14 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-cp .env.example .env
-```
-
-Set `DATABASE_URL` in `backend/.env`, for example:
-
-```text
-DATABASE_URL=mysql+pymysql://user:password@127.0.0.1:3306/accident_db
-```
-
-Run the backend:
-
-```bash
+alembic upgrade head
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+Set `DATABASE_URL` and `SECRET_KEY` in `backend/.env`, for example:
+
+```env
+DATABASE_URL=mysql+pymysql://user:password@127.0.0.1:3306/accident_db
 ```
 
 ### Frontend
@@ -148,145 +86,45 @@ echo "VITE_API_URL=http://localhost:8000" > .env
 npm run dev
 ```
 
-Frontend development URL:
+Open http://localhost:5173. Run `npm run lint` and `npm run build` before handing off frontend changes.
+
+## Repository map
 
 ```text
-http://localhost:5173
+backend/app/main.py          FastAPI app, middleware, startup, route registration
+backend/app/api/routes/      HTTP endpoints and access checks
+backend/app/core/            Inference, video, alerts, agent, reports, security
+backend/app/db/              SQLAlchemy engine, models, CRUD helpers
+backend/app/schemas/         Pydantic request/response contracts
+backend/alembic/             Database migrations
+backend/tests/               API, security, alert, and workflow tests
+frontend/src/pages/          Route-level screens
+frontend/src/components/     Shared dashboard/UI components
+frontend/src/api/            Axios API modules and token handling
+frontend/src/context/         Authentication state
+database/                    Initial MySQL schema and seed script
+ml_training/                 Training notebook, metrics, model artifacts
+docker-compose.yml           MySQL, backend, and frontend services
+docs/SYSTEM_DETAILS.md       Complete implementation walkthrough
 ```
 
-## Configuration
+## Model contract
 
-Primary backend variables:
-
-- `DATABASE_URL`
-- `SECRET_KEY`
-- `MODEL_PATH`
-- `DETECTION_CONFIDENCE`
-- `IOU_THRESHOLD`
-- `ALERT_CLASSES`
-- `ALERT_COOLDOWN_SECONDS`
-- `SMTP_HOST`
-- `SMTP_PORT`
-- `SMTP_USER`
-- `SMTP_PASSWORD`
-- `ALERT_EMAIL_TO`
-- `CALL_PROVIDER`
-- `TWILIO_ACCOUNT_SID`
-- `TWILIO_AUTH_TOKEN`
-- `TWILIO_FROM_NUMBER`
-
-### AI emergency agent and WhatsApp
-
-The detection endpoints now create an asynchronous AI emergency assessment for
-alert-worthy events. Configure `GEMINI_API_KEY` to use Gemini; without a key,
-the system stores a deterministic rule-based assessment instead. To dispatch
-the assessment through Twilio WhatsApp, also set `TWILIO_ACCOUNT_SID`,
-`TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_TO`.
-
-After updating an existing database, apply the migration before starting the
-API:
-
-```bash
-cd backend
-alembic upgrade head
-```
-
-Reports are available through `GET /agent/report/{detection_id}` and
-`GET /agent/reports`. The frontend polls the report endpoint after an
-alert-worthy image or video detection and displays the assessment in the
-detection result and Alerts Center.
-- `EMERGENCY_CALL_TO`
-
-Recommended default behavior:
-
-- Email alerts are enabled when SMTP is configured
-- Call logging stays in `mock` mode by default
-- Admin test-call is available for controlled testing
-
-## Alerting
-
-### Email Alerts
-
-The system can send alert emails with detection details and the annotated image when SMTP settings are provided.
-
-Required SMTP settings:
+The runtime class order is fixed:
 
 ```text
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_sender@gmail.com
-SMTP_PASSWORD=your_16_char_app_password
-ALERT_EMAIL_TO=recipient@example.com
+0 = fire
+1 = moderate
+2 = severe
 ```
 
-### Call Logging
+If a new model changes labels or order, update the weights, `classes.yaml`, `DetectionEngine.CLASS_NAMES`, tests, and documentation together.
 
-The codebase includes a call service for test and logging purposes. By default it runs in mock mode, which does not place live calls.
+## Important safety notes
 
-## API Endpoints
+- Never commit `.env` files, API keys, passwords, phone numbers, or real recipient addresses.
+- Original videos belong in private `data/uploads`; generated outputs are under `static/processed`, `static/snapshots`, and `static/reports`.
+- Email and WhatsApp delivery are configuration-dependent and can fail; inspect persisted delivery status.
+- Video jobs are currently in memory, suitable for a single-process demo but not multi-worker production.
 
-### Authentication
-
-- `POST /auth/register`
-- `POST /auth/login`
-- `GET /auth/me`
-
-### Detection
-
-- `POST /detection/image`
-- `POST /detection/video`
-- `GET /detection/history`
-- `GET /detection/history/{id}`
-
-### Alerts
-
-- `GET /alerts`
-- `GET /alerts/calls`
-- `POST /alerts/test-email` - admin only
-- `POST /alerts/test-call` - admin only, mock log by default
-
-### Dashboard
-
-- `GET /dashboard/stats`
-- `GET /dashboard/timeline`
-- `GET /dashboard/confidence-distribution`
-
-### Users
-
-- `GET /users`
-- `PUT /users/{id}`
-- `DELETE /users/{id}`
-
-## Testing
-
-### Backend
-
-```bash
-cd backend
-source .venv/bin/activate
-pytest -q
-```
-
-### Frontend
-
-```bash
-cd frontend
-npm run lint
-npm run build
-```
-
-## Security Notes
-
-- Replace all default credentials before deployment
-- Use a strong `SECRET_KEY`
-- Restrict CORS for non-local environments
-- Keep secrets out of version control
-- Enable HTTPS, monitoring, and backup policies for production
-
-## Deployment Notes
-
-This repository is well suited for a final year project, academic demonstration, and local deployment. For production use, add stronger operational controls, observability, and a proper incident response workflow.
-
-## License
-
-This project is intended for academic and demonstration use.
+Read [SYSTEM_DETAILS.md](docs/SYSTEM_DETAILS.md) for the full frontend, backend, API, model, database, agent, alert, storage, security, and development explanation.

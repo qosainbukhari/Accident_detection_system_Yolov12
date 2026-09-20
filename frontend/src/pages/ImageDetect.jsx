@@ -32,7 +32,7 @@ export default function ImageDetect() {
       if (data.agent_pending && data.event_id) {
         setAgentLoading(true);
         pollAgentReport(data.event_id)
-          .then(r => { setReport(r); if (r?.whatsapp_sent) toast.success("WhatsApp alert dispatched"); })
+          .then(r => { setReport(r); if (r?.whatsapp_sent) toast.success("WhatsApp alert submitted for delivery"); })
           .catch(() => toast.error("AI emergency report could not be loaded"))
           .finally(() => setAgentLoading(false));
       }

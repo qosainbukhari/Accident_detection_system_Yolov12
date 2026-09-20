@@ -40,7 +40,7 @@ export default function Settings() {
       <Section title="Emergency Calls" icon={PhoneIcon}>
         <Row label="Provider"    value="Free mock by default" />
         <Row label="Call Cooldown" value="Disabled for detections" />
-        <Row label="Voice Engine" value="Twilio Alice (TTS) when enabled" />
+        <Row label="Voice Engine" value="External voice provider removed" />
         <Row label="Repeat"      value="3× per call" />
       </Section>
 

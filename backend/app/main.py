@@ -13,12 +13,14 @@ from fastapi.staticfiles import StaticFiles
 
 from app.db.database import Base, engine
 from app.core.detection_engine import DetectionEngine
+from app.core.whatsapp_service import kapso_configured
 from app.api.routes import auth, detection, alerts, dashboard, users, agent
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-for directory in ["static", settings.PROCESSED_DIR, settings.SNAPSHOTS_DIR, settings.UPLOAD_DIR]:
+for directory in ["static", settings.PROCESSED_DIR, settings.SNAPSHOTS_DIR,
+                  settings.REPORTS_DIR, settings.UPLOAD_DIR]:
     os.makedirs(directory, exist_ok=True)
 
 
@@ -29,7 +31,8 @@ async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
 
     # Ensure storage directories exist
-    for d in ["static", settings.PROCESSED_DIR, settings.SNAPSHOTS_DIR, settings.UPLOAD_DIR]:
+    for d in ["static", settings.PROCESSED_DIR, settings.SNAPSHOTS_DIR,
+              settings.REPORTS_DIR, settings.UPLOAD_DIR]:
         os.makedirs(d, exist_ok=True)
 
     # Pre-load YOLOv12 model (singleton)
@@ -40,11 +43,10 @@ async def lifespan(app: FastAPI):
     logger.info("AI emergency agent enabled=%s", settings.AGENT_ENABLED)
     whatsapp_ready = (
         settings.WHATSAPP_ENABLED
-        and settings.TWILIO_ACCOUNT_SID.strip().startswith("AC")
-        and settings.TWILIO_AUTH_TOKEN.strip()
-        and settings.TWILIO_WHATSAPP_TO.strip()
+        and settings.WHATSAPP_MODE.lower() == "kapso"
+        and kapso_configured()
     )
-    logger.info("Twilio WhatsApp configured=%s", whatsapp_ready)
+    logger.info("Kapso WhatsApp configured=%s", whatsapp_ready)
     logger.info("AI Accident Detection API started")
 
     yield

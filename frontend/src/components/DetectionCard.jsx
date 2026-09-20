@@ -3,7 +3,7 @@ import { fmtDate, truncate } from "../utils/helpers";
 import { API_BASE, CLASS_CONFIG } from "../utils/constants";
 import { PhotoIcon, VideoCameraIcon, BellAlertIcon, PhoneIcon, ChatBubbleLeftRightIcon, SparklesIcon } from "@heroicons/react/24/outline";
 
-export default function DetectionCard({ event, onDelete, isAdmin }) {
+export default function DetectionCard({ event, onDelete, onStatus, isAdmin }) {
   const isVideo = event.media_type === "video";
   const cfg     = CLASS_CONFIG[event.detected_class] ?? CLASS_CONFIG.no_detection;
 
@@ -48,6 +48,9 @@ export default function DetectionCard({ event, onDelete, isAdmin }) {
         <p className="text-[11px] text-slate-600">
           {fmtDate(event.created_at)}
         </p>
+        <p className="text-[11px] capitalize text-slate-500">
+          Status: {event.incident_status ?? "open"}
+        </p>
 
         {/* Indicators */}
         {(event.alert_sent || event.call_triggered || event.whatsapp_sent || event.agent_report) && (
@@ -86,6 +89,14 @@ export default function DetectionCard({ event, onDelete, isAdmin }) {
           >
             Delete
           </button>
+        )}
+        {onStatus && event.incident_status === "open" && (
+          <div className="flex gap-2 mt-auto">
+            <button onClick={() => onStatus(event.id, "acknowledged")}
+              className="text-[11px] text-emerald-400 hover:text-emerald-300">Acknowledge</button>
+            <button onClick={() => onStatus(event.id, "false_alarm")}
+              className="text-[11px] text-amber-400 hover:text-amber-300">False alarm</button>
+          </div>
         )}
       </div>
     </div>

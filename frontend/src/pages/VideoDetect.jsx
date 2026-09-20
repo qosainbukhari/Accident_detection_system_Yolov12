@@ -7,45 +7,60 @@ import SeverityBadge from "../components/SeverityBadge";
 import ProgressBar from "../components/ProgressBar";
 import { showEmergencyToast } from "../components/AlertToast";
 import toast from "react-hot-toast";
-import { API_BASE, CLASS_CONFIG } from "../utils/constants";
+import { API_BASE } from "../utils/constants";
 import { fmtConf } from "../utils/helpers";
-import { ArrowDownTrayIcon, ArrowPathIcon, FilmIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, FilmIcon } from "@heroicons/react/24/outline";
 
 const ACCEPT = { "video/*": [".mp4", ".avi", ".mov", ".mkv"] };
 
 export default function VideoDetect() {
   const [file,    setFile]    = useState(null);
   const [result,  setResult]  = useState(null);
+  const [liveStreamUrl, setLiveStreamUrl] = useState(null);
   const [progress,setProgress]= useState(0);
   const [stage,   setStage]   = useState("");
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(null);
   const [agentLoading, setAgentLoading] = useState(false);
 
-  const onFile = (f) => { setFile(f); setResult(null); setReport(null); setAgentLoading(false); setProgress(0); setStage(""); };
-  const reset  = ()  => { setFile(null); setResult(null); setReport(null); setAgentLoading(false); setProgress(0); setStage(""); };
+  const onFile = (f) => { setFile(f); setResult(null); setLiveStreamUrl(null); setReport(null); setAgentLoading(false); setProgress(0); setStage(""); };
+  const reset  = ()  => { setFile(null); setResult(null); setLiveStreamUrl(null); setReport(null); setAgentLoading(false); setProgress(0); setStage(""); };
 
   const process = async () => {
     if (!file) return;
     setLoading(true); setStage("Uploading video…"); setProgress(5);
     try {
       const { data } = await detectionApi.detectVideo(file, "Unknown", (e) => {
-        const pct = Math.round((e.loaded / e.total) * 60);
+        const pct = Math.round((e.loaded / e.total) * 15);
         setProgress(pct);
-        if (pct >= 55) setStage("Processing frames with YOLOv12…");
+        if (pct >= 14) setStage("Upload complete — preparing frame analysis…");
       });
+      const jobId = data.job_id;
+      if (!jobId) throw new Error("Video processing job was not created");
+      setLiveStreamUrl(`/detection/video/jobs/${jobId}/stream`);
+      let job;
+      do {
+        await new Promise(resolve => setTimeout(resolve, 700));
+        ({ data: job } = await detectionApi.getVideoJob(jobId));
+        const frameProgress = Math.round(15 + (job.progress ?? 0) * 0.85);
+        setProgress(Math.min(100, frameProgress));
+        const frames = job.total_frames ? ` (${job.processed_frames}/${job.total_frames} frames)` : "";
+        setStage(`${job.stage || "Processing video…"}${frames}`);
+      } while (job.status === "queued" || job.status === "processing");
+      if (job.status === "failed") throw new Error(job.error || "Video processing failed");
+      const finalResult = job.result;
       setProgress(100); setStage("Complete");
-      setResult(data);
-      if (data.agent_pending && data.event_id) {
+      setResult(finalResult);
+      if (finalResult.agent_pending && finalResult.event_id) {
         setAgentLoading(true);
-        pollAgentReport(data.event_id)
-          .then(r => { setReport(r); if (r?.whatsapp_sent) toast.success("WhatsApp alert dispatched"); })
+        pollAgentReport(finalResult.event_id)
+          .then(r => { setReport(r); if (r?.whatsapp_sent) toast.success("WhatsApp alert submitted for delivery"); })
           .catch(() => toast.error("AI emergency report could not be loaded"))
           .finally(() => setAgentLoading(false));
       }
-      data.alert_triggered
-        ? showEmergencyToast(data.dominant_class, data.avg_confidence)
-        : toast.success(`Done — dominant class: ${data.dominant_class}`);
+      finalResult.alert_triggered
+        ? showEmergencyToast(finalResult.dominant_class, finalResult.avg_confidence)
+        : toast.success(`Done — dominant class: ${finalResult.dominant_class}`);
     } catch (err) {
       toast.error(err.response?.data?.detail || "Processing failed");
     } finally {
@@ -84,7 +99,19 @@ export default function VideoDetect() {
           </div>
 
           {/* Progress */}
-          {loading && <div className="card"><ProgressBar progress={progress} label={stage} /></div>}
+          {loading && <>
+            <div className="card"><ProgressBar progress={progress} label={stage} /></div>
+            {liveStreamUrl && (
+              <div className="card p-0 overflow-hidden">
+                <div className="px-4 py-3 border-b border-white/[0.06]">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Live YOLO frame analysis</p>
+                  <p className="text-[11px] text-slate-600 mt-1">Each frame below is being analyzed and annotated in real time.</p>
+                </div>
+                <img src={`${API_BASE}${liveStreamUrl}`} alt="Live annotated video processing"
+                  className="w-full max-h-[30rem] object-contain bg-[#0f1117]" />
+              </div>
+            )}
+          </>}
 
           {/* Process button */}
           {!loading && !result && (
@@ -103,7 +130,7 @@ export default function VideoDetect() {
                   <span className="text-lg">🚨</span>
                   <div>
                     <p className="text-sm font-bold text-rose-300">Emergency Alert Dispatched</p>
-                    <p className="text-xs text-slate-500">Email + voice call sent to emergency contacts</p>
+                    <p className="text-xs text-slate-500">Email + WhatsApp report sent to emergency contacts</p>
                   </div>
                 </div>
               )}
@@ -126,54 +153,8 @@ export default function VideoDetect() {
 
               {/* Class stats */}
               <AgentReportCard report={report} loading={agentLoading} />
-              <div className="card">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Frame Distribution</p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {Object.entries(result.class_stats ?? {}).map(([cls, count]) => {
-                    const cfg = CLASS_CONFIG[cls] ?? CLASS_CONFIG.no_detection;
-                    const total = Object.values(result.class_stats).reduce((a,b)=>a+b,0);
-                    const pct = total ? Math.round(count/total*100) : 0;
-                    return (
-                      <div key={cls} className="rounded-xl p-3 text-center"
-                           style={{ background: cfg.color + "10", border: `1px solid ${cfg.color}22` }}>
-                        <p className="text-lg font-bold" style={{ color: cfg.color }}>{count}</p>
-                        <p className="text-[10px] text-slate-600 mt-0.5">{pct}% · {cfg.label}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Video player */}
-              <div className="card p-0 overflow-hidden">
-                <video controls
-                  className="w-full max-h-72 bg-[#0f1117]"
-                  src={`${API_BASE}${result.processed_video_url}`} />
-              </div>
-
-              {/* Snapshot */}
-              {result.snapshot_url && (
-                <div className="card p-0 overflow-hidden">
-                  <div className="px-4 pt-3 pb-1">
-                    <p className="text-[10px] text-slate-600 uppercase tracking-widest font-semibold">
-                      Best Frame
-                    </p>
-                  </div>
-                  <img src={`${API_BASE}${result.snapshot_url}`} alt="snapshot"
-                    className="w-full object-contain max-h-48 bg-[#0f1117]" />
-                </div>
-              )}
-
               {/* Actions */}
               <div className="flex flex-wrap gap-2">
-                <a href={`${API_BASE}${result.processed_video_url}`} download className="btn btn-ghost text-xs">
-                  <ArrowDownTrayIcon className="w-4 h-4" /> Download Video
-                </a>
-                {result.snapshot_url && (
-                  <a href={`${API_BASE}${result.snapshot_url}`} download className="btn btn-ghost text-xs">
-                    <ArrowDownTrayIcon className="w-4 h-4" /> Download Snapshot
-                  </a>
-                )}
                 <button onClick={reset} className="btn btn-ghost text-xs">
                   <ArrowPathIcon className="w-4 h-4" /> New Video
                 </button>

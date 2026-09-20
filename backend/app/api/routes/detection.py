@@ -12,12 +12,13 @@ from fastapi import (
     APIRouter, UploadFile, File, Depends,
     HTTPException, BackgroundTasks, Query
 )
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db import crud
 from app.core.detection_engine import DetectionEngine
-from app.core.video_processor import VideoProcessor
+from app.core.video_jobs import create_job, get_job, process_job
 from app.core.alert_service import maybe_send_alert
 from app.core.emergency_agent import run_emergency_agent
 from app.api.deps import get_current_user, require_admin
@@ -49,6 +50,8 @@ def _serialise_event(event) -> dict:
         "alert_sent": event.alert_sent,
         "call_triggered": event.call_triggered,
         "whatsapp_sent": event.whatsapp_sent,
+        "incident_status": event.incident_status,
+        "location": event.location,
         "created_at": event.created_at,
         "agent_report": None,
     }
@@ -153,6 +156,7 @@ async def detect_image(
         "confidence":        result["confidence"],
         "bounding_boxes":    result["bounding_boxes"],
         "snapshot_path":     proc_path,
+        "location":          location[:255],
         "processing_ms":     result["processing_ms"],
     })
 
@@ -213,90 +217,49 @@ async def detect_video(
     upload_path = os.path.join(settings.UPLOAD_DIR, upload_name)
     await _save_upload(file, upload_path, settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024)
 
-    # Process video
-    processor = VideoProcessor()
+    # Reject corrupt containers synchronously so clients receive a useful 400
+    # instead of a queued job that can only fail later in the background.
+    probe = cv2.VideoCapture(upload_path)
+    valid_video = probe.isOpened()
+    if valid_video:
+        valid_video = int(probe.get(cv2.CAP_PROP_FRAME_COUNT) or 0) > 0
+    probe.release()
+    if not valid_video:
+        try:
+            os.remove(upload_path)
+        except FileNotFoundError:
+            pass
+        raise HTTPException(400, "Cannot open video. File may be corrupt or unsupported.")
+
+    # Queue the full frame-by-frame process. The client polls the job endpoint
+    # and receives true processing progress instead of waiting on this request.
     os.makedirs(settings.PROCESSED_DIR, exist_ok=True)
-    try:
-        result = processor.process(upload_path, settings.PROCESSED_DIR)
-    except ValueError as exc:
-        try:
-            os.remove(upload_path)
-        except FileNotFoundError:
-            pass
-        raise HTTPException(400, str(exc))
-    except Exception:
-        try:
-            os.remove(upload_path)
-        except FileNotFoundError:
-            pass
-        raise HTTPException(500, "Video processing failed")
+    job_id = create_job(user.id, file.filename or upload_name, upload_path, location)
+    bg.add_task(process_job, job_id)
+    return {"job_id": job_id, "status": "queued", "progress": 0,
+            "stage": "Queued for frame-by-frame analysis"}
 
-    # Save to DB
-    event = crud.create_detection_event(db, {
-        "user_id":           user.id,
-        "media_type":        "video",
-        "original_filename": file.filename,
-        "processed_filename": result["output_name"],
-        "detected_class":    result["dominant_class"],
-        "confidence":        result["avg_confidence"],
-        "total_frames":      result["total_frames"],
-        "detected_frames":   result["processed_frames"],
-        "dominant_class":    result["dominant_class"],
-        "snapshot_path":     result["snapshot_path"],
-        "processing_ms":     0,
-    })
 
-    # Save video-specific stats
-    crud.create_video_log(db, {
-        "detection_id":        event.id,
-        "total_frames":        result["total_frames"],
-        "processed_frames":    result["processed_frames"],
-        "fire_frames":         result["class_stats"].get("fire", 0),
-        "moderate_frames":     result["class_stats"].get("moderate", 0),
-        "severe_frames":       result["class_stats"].get("severe", 0),
-        "no_detection_frames": result["class_stats"].get("no_detection", 0),
-        "avg_confidence":      result["avg_confidence"],
-        "fps_processed":       result["fps_processed"],
-        "output_path":         result["output_path"],
-    })
-
-    # Alerts
-    if result["alert_required"]:
-        if settings.AGENT_ENABLED:
-            crud.create_pending_agent_report(db, event.id)
-        bg.add_task(
-            maybe_send_alert,
-            event.id,
-            result["dominant_class"],
-            result["avg_confidence"],
-            file.filename,
-            image_path=result.get("snapshot_path"),
-        )
-        bg.add_task(
-            run_emergency_agent,
-            event.id,
-            result["dominant_class"],
-            result["avg_confidence"],
-            result.get("snapshot_path"),
-            "video",
-            file.filename or "",
-        )
-
-    snap_url = None
-    if result["snapshot_path"]:
-        snap_url = f"/static/snapshots/{os.path.basename(result['snapshot_path'])}"
-
+@router.get("/video/jobs/{job_id}")
+def get_video_job(job_id: str, user=Depends(get_current_user)):
+    """Return live frame-processing progress and final video result."""
+    job = get_job(job_id)
+    if not job or (user.role != "admin" and job["user_id"] != user.id):
+        raise HTTPException(404, "Video processing job not found")
     return {
-        "event_id":            event.id,
-        "dominant_class":      result["dominant_class"],
-        "avg_confidence":      result["avg_confidence"],
-        "total_frames":        result["total_frames"],
-        "class_stats":         result["class_stats"],
-        "processed_video_url": f"/static/processed/{result['output_name']}",
-        "snapshot_url":        snap_url,
-        "alert_triggered":     result["alert_required"],
-        "agent_pending":       bool(result["alert_required"] and settings.AGENT_ENABLED),
+        key: job.get(key) for key in (
+            "id", "status", "stage", "progress", "processed_frames", "total_frames", "result", "error"
+        )
     }
+
+
+@router.get("/video/jobs/{job_id}/stream")
+def stream_video_job(job_id: str):
+    """Stream YOLO-annotated frames while a video job is processing."""
+    if not get_job(job_id):
+        raise HTTPException(404, "Video processing job not found")
+    from app.core.video_jobs import stream_job
+    return StreamingResponse(stream_job(job_id), media_type="multipart/x-mixed-replace; boundary=frame")
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -330,6 +293,22 @@ def get_event(
     if not event:
         raise HTTPException(404, f"Event #{event_id} not found")
     return _serialise_event(event)
+
+
+@router.patch("/history/{event_id}/status")
+def set_incident_status(event_id: int, status: str = Query(...),
+                        db: Session = Depends(get_db), user=Depends(get_current_user)):
+    """Allow an authenticated owner/admin to acknowledge or resolve an incident."""
+    owner_id = None if user.role == "admin" else user.id
+    event = crud.get_detection_event(db, event_id, user_id=owner_id)
+    if not event:
+        raise HTTPException(404, "Event not found")
+    updated = crud.update_incident_status(db, event_id, status)
+    if not updated:
+        raise HTTPException(422, "Invalid incident status")
+    crud.create_audit_log(db, event_id, "incident_status_changed", actor=user.username,
+                          details={"status": status})
+    return _serialise_event(updated)
 
 
 # ─────────────────────────────────────────────────────────────────

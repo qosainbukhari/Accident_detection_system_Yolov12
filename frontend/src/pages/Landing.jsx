@@ -4,7 +4,6 @@ import { CpuChipIcon, BellAlertIcon, PhoneIcon, ChartBarIcon, FilmIcon, PhotoIco
 const FEATURES = [
   { icon: CpuChipIcon,   title: "YOLOv12 Detection",   desc: "State-of-the-art object detection with 4 severity classes",       color: "#6366f1" },
   { icon: BellAlertIcon, title: "Instant Email Alerts", desc: "Automated emergency emails for critical detections",              color: "#ef4444" },
-  { icon: PhoneIcon,     title: "Emergency Voice Call", desc: "Twilio-powered voice calls to emergency contacts",               color: "#8b5cf6" },
   { icon: PhotoIcon,     title: "Image Detection",      desc: "Upload any accident image — get annotated results instantly",    color: "#10b981" },
   { icon: FilmIcon,      title: "Video Processing",     desc: "Frame-by-frame analysis with dominant class determination",      color: "#f59e0b" },
   { icon: ChartBarIcon,  title: "Analytics",            desc: "Full detection history, confidence trends, and class charts",    color: "#06b6d4" },
@@ -79,7 +78,7 @@ export default function Landing() {
       {/* Tech stack pills */}
       <div className="border-y border-white/[0.05] py-5">
         <div className="flex flex-wrap justify-center gap-2 px-6">
-          {["YOLOv12", "FastAPI", "React 18", "MySQL 8", "Twilio", "Docker"].map(t => (
+          {["YOLOv12", "FastAPI", "React 18", "MySQL 8", "Kapso WhatsApp", "Docker"].map(t => (
             <span key={t} className="text-xs font-medium text-slate-500
                                      bg-white/[0.04] border border-white/[0.06]
                                      px-3 py-1 rounded-full">{t}</span>

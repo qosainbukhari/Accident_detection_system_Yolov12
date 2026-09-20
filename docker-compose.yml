@@ -44,11 +44,19 @@ services:
       - ./backend/ml_model:/app/ml_model          # mount model weights
       - media_data:/app/static                     # persistent processed media
       - upload_data:/app/data                      # uploads are kept outside the web root
+    # Backend-only integration credentials are kept in backend/.env. Do not
+    # replace them with empty values when the root Docker .env omits them.
+    env_file:
+      - ./backend/.env
     environment:
       DATABASE_URL: mysql+pymysql://${MYSQL_USER:-accident_app}:${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in the root .env file}@mysql:3306/${MYSQL_DATABASE:-accident_db}
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in the root .env file}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost}
       ENABLE_DOCS: ${ENABLE_DOCS:-false}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS:-localhost,127.0.0.1,backend}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      AGENT_ENABLED: ${AGENT_ENABLED:-true}
     networks:
       - accident_net
     healthcheck:

@@ -28,36 +28,28 @@ def test_email_alert_runs_for_moderate_class(monkeypatch):
         image_path="/tmp/frame.jpg",
     )
 
-    assert captured == {
+    assert {key: value for key, value in captured.items() if key != "db"} == {
         "event_id": 42,
         "cls": "moderate",
         "conf": 0.91,
         "filename": "frame.jpg",
-        "db": None,
         "image_path": "/tmp/frame.jpg",
     }
+    assert captured["db"] is not None
 
 
-def test_twilio_call_path_runs_for_moderate_class(monkeypatch):
+def test_external_call_provider_is_not_used(monkeypatch):
     captured = {}
 
-    def fake_make_call(event_id, detected_class, db):
+    def fake_log_mock_call(event_id, detected_class, db):
         captured["event_id"] = event_id
         captured["detected_class"] = detected_class
         captured["db"] = db
-
-    monkeypatch.setattr(settings, "CALL_PROVIDER", "twilio_trial")
-    monkeypatch.setattr(settings, "TWILIO_ACCOUNT_SID", "AC123")
-    monkeypatch.setattr(settings, "TWILIO_AUTH_TOKEN", "token")
-    monkeypatch.setattr(call_service, "make_call", fake_make_call)
+    monkeypatch.setattr(call_service, "_log_mock_call", fake_log_mock_call)
 
     call_service.maybe_trigger_call(event_id=77, detected_class="moderate", db=None)
 
-    assert captured == {
-        "event_id": 77,
-        "detected_class": "moderate",
-        "db": None,
-    }
+    assert captured == {"event_id": 77, "detected_class": "moderate", "db": None}
 
 
 def test_mock_call_is_default_and_free(monkeypatch):
@@ -68,7 +60,6 @@ def test_mock_call_is_default_and_free(monkeypatch):
         captured["detected_class"] = detected_class
         captured["db"] = db
 
-    monkeypatch.setattr(settings, "CALL_PROVIDER", "mock")
     monkeypatch.setattr(call_service, "_log_mock_call", fake_log_mock_call)
 
     call_service.maybe_trigger_call(event_id=88, detected_class="severe", db=None)

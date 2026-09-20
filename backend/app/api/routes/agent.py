@@ -1,12 +1,15 @@
 """AI emergency agent report endpoints."""
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.db import crud
 from app.db.database import get_db
 from app.api.deps import get_current_user, require_admin
-from app.core.whatsapp_service import format_whatsapp_message, send_whatsapp
+from app.core.whatsapp_service import format_whatsapp_message, kapso_configured, send_whatsapp
 
 router = APIRouter()
 
@@ -30,6 +33,7 @@ def _serialise(report):
         "whatsapp_sent": report.whatsapp_sent,
         "whatsapp_sid": report.whatsapp_sid,
         "whatsapp_error": report.whatsapp_error,
+        "report_path": report.report_path,
         "created_at": report.created_at,
     }
 
@@ -41,9 +45,7 @@ def agent_status(_user=Depends(get_current_user)):
         "gemini_configured": bool(settings.GEMINI_API_KEY.strip()),
         "gemini_model": settings.GEMINI_MODEL,
         "whatsapp_enabled": settings.WHATSAPP_ENABLED,
-        "whatsapp_configured": bool(settings.TWILIO_ACCOUNT_SID.strip().startswith("AC")
-                                    and settings.TWILIO_AUTH_TOKEN.strip()
-                                    and settings.TWILIO_WHATSAPP_TO.strip()),
+        "whatsapp_configured": settings.WHATSAPP_MODE.lower() == "kapso" and kapso_configured(),
     }
 
 
@@ -71,10 +73,23 @@ def get_report(detection_id: int, db: Session = Depends(get_db),
                 "whatsapp_sent": False,
                 "whatsapp_sid": None,
                 "whatsapp_error": None,
+                "report_path": None,
                 "created_at": None,
             }
         raise HTTPException(404, "Detection event not found")
     return _serialise(report)
+
+
+@router.get("/report/{detection_id}/pdf")
+def get_report_pdf(detection_id: int, db: Session = Depends(get_db),
+                   user=Depends(get_current_user)):
+    """Download the generated PDF report if the caller owns the incident."""
+    owner_id = None if user.role == "admin" else user.id
+    report = crud.get_agent_report(db, detection_id, owner_id)
+    if not report or not report.report_path or not Path(report.report_path).is_file():
+        raise HTTPException(404, "Report PDF is not available")
+    return FileResponse(report.report_path, media_type="application/pdf",
+                        filename=f"incident-{detection_id}.pdf")
 
 
 @router.get("/reports")
@@ -95,4 +110,6 @@ def test_whatsapp(admin=Depends(require_admin)):
         "immediate_actions": ["Verify the alert configuration"],
     }
     result = send_whatsapp(format_whatsapp_message(report, "test", 1.0, "test"))
+    if not result["sent"]:
+        raise HTTPException(status_code=503, detail=result["error"] or "WhatsApp request was rejected")
     return result

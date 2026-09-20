@@ -49,8 +49,11 @@ export default function AlertsCenter() {
     try {
       if (type === "email") await alertApi.testEmail();
       else if (type === "call") await alertApi.testCall();
-      else await agentApi.testWhatsApp();
-      toast.success(`Test ${type} dispatched!`);
+      else {
+        await agentApi.testWhatsApp();
+        toast.success("WhatsApp test submitted for delivery.");
+      }
+      if (type !== "WhatsApp") toast.success(`Test ${type} dispatched!`);
     } catch (err) {
       toast.error(err.response?.data?.detail || `Test ${type} failed`);
     } finally { setTesting(false); }
@@ -77,7 +80,7 @@ export default function AlertsCenter() {
         `#${item.id}`,
         `#${item.detection_id}`,
         item.to_number ?? "—",
-        item.twilio_call_sid ? `${item.twilio_call_sid.slice(0, 16)}…` : "—",
+        item.call_sid ? `${item.call_sid.slice(0, 16)}…` : "—",
         item.call_status,
         fmtDate(item.created_at),
       ] : [

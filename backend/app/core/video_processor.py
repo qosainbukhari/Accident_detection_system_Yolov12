@@ -5,6 +5,7 @@ import cv2
 import os
 import uuid
 import logging
+from typing import Callable, Optional
 from app.core.detection_engine import DetectionEngine
 from app.config import settings
 
@@ -16,7 +17,9 @@ class VideoProcessor:
     def __init__(self):
         self.engine = DetectionEngine.get_instance()
 
-    def process(self, input_path: str, output_dir: str) -> dict:
+    def process(self, input_path: str, output_dir: str,
+                progress_callback: Optional[Callable[[int, int], None]] = None,
+                frame_callback: Optional[Callable[[object], None]] = None) -> dict:
         """
         Process a video file frame-by-frame through YOLOv12.
 
@@ -69,12 +72,16 @@ class VideoProcessor:
                     break
 
                 frame_idx += 1
+                if progress_callback and (frame_idx == 1 or frame_idx % 5 == 0 or frame_idx == total):
+                    progress_callback(frame_idx, total)
                 if frame_idx > settings.MAX_VIDEO_FRAMES:
                     raise ValueError("Video exceeds the configured frame limit")
 
                 if frame_idx % stride == 0:
                     result    = self.engine.predict_frame(frame)
                     annotated = result["annotated_frame"]
+                    if frame_callback:
+                        frame_callback(annotated)
                     cls       = result["detected_class"]
                     conf      = result["confidence"]
 

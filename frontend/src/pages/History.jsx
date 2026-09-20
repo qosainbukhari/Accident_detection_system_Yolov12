@@ -35,6 +35,14 @@ export default function History() {
     } catch { toast.error("Delete failed"); }
   };
 
+  const handleStatus = async (id, status) => {
+    try {
+      const { data } = await detectionApi.updateStatus(id, status);
+      setEvents((current) => current.map((event) => event.id === id ? data : event));
+      toast.success(`Incident marked ${status.replace("_", " ")}`);
+    } catch { toast.error("Unable to update incident status"); }
+  };
+
   return (
     <div className="space-y-5 anim-fade-up">
       <div>
@@ -56,7 +64,7 @@ export default function History() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {events.map(ev => (
             <DetectionCard key={ev.id} event={ev}
-              onDelete={isAdmin ? handleDelete : null} isAdmin={isAdmin} />
+              onDelete={isAdmin ? handleDelete : null} onStatus={handleStatus} isAdmin={isAdmin} />
           ))}
         </div>
       )}

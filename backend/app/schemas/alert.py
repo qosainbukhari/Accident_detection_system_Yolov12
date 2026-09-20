@@ -25,7 +25,7 @@ class CallLogOut(BaseModel):
     detection_id: int
     to_number: Optional[str]
     from_number: Optional[str]
-    twilio_call_sid: Optional[str]
+    call_sid: Optional[str]
     call_status: str
     duration_seconds: Optional[int]
     call_message: Optional[str]

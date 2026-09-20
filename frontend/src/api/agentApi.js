@@ -19,4 +19,6 @@ export const agentApi = {
     api.get("/agent/reports", { params: { skip, limit, whatsapp_only: whatsappOnly } }),
   getStatus: () => api.get("/agent/status"),
   testWhatsApp: () => api.post("/agent/test-whatsapp"),
+  downloadReport: (detectionId) =>
+    api.get(`/agent/report/${detectionId}/pdf`, { responseType: "blob" }),
 };

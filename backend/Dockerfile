@@ -20,7 +20,7 @@ COPY . .
 
 # Create directories
 RUN addgroup --system app && adduser --system --ingroup app app \
-    && mkdir -p static/processed static/snapshots data/uploads \
+    && mkdir -p static/processed static/snapshots static/reports data/uploads \
     && chown -R app:app /app
 
 USER app

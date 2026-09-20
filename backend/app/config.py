@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,http://localhost"
-    TRUSTED_HOSTS: str = "localhost,127.0.0.1"
+    TRUSTED_HOSTS: str = "localhost,127.0.0.1,testserver,backend"
     ENABLE_DOCS: bool = False
 
     # YOLOv12 Model
@@ -40,23 +40,19 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str = ""
     ALERT_EMAIL_TO: str = ""
 
-    # Twilio
-    CALL_PROVIDER: str = "mock"
-    TWILIO_ACCOUNT_SID: str = ""
-    TWILIO_AUTH_TOKEN: str = ""
-    TWILIO_FROM_NUMBER: str = ""
-    EMERGENCY_CALL_TO: str = ""
 
     # AI emergency agent
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-3.6-flash"
+    GEMINI_MODEL: str = "gemini-2.5-flash"
     AGENT_ENABLED: bool = True
     AGENT_TIMEOUT_SECONDS: int = 90
 
-    # WhatsApp (Twilio)
+    # WhatsApp (Kapso / Meta Cloud API)
     WHATSAPP_ENABLED: bool = True
-    TWILIO_WHATSAPP_FROM: str = "whatsapp:+14155238886"
-    TWILIO_WHATSAPP_TO: str = ""
+    WHATSAPP_MODE: str = "mock"
+    KAPSO_API_KEY: str = ""
+    KAPSO_PHONE_NUMBER_ID: str = ""
+    KAPSO_WHATSAPP_TO: str = ""
     WHATSAPP_INCLUDE_MEDIA: bool = False
     PUBLIC_BASE_URL: str = ""
 
@@ -66,6 +62,7 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "data/uploads"
     PROCESSED_DIR: str = "static/processed"
     SNAPSHOTS_DIR: str = "static/snapshots"
+    REPORTS_DIR: str = "static/reports"
     MAX_UPLOAD_SIZE_MB: int = 100
     MAX_VIDEO_FRAMES: int = 9000
     MAX_IMAGE_PIXELS: int = 25_000_000

@@ -19,6 +19,7 @@ class AccClass(str, enum.Enum):
     fire   = "fire"
     moderate = "moderate"
     severe = "severe"
+    no_detection = "no_detection"
 
 
 class UserRole(str, enum.Enum):
@@ -56,7 +57,7 @@ class DetectionEvent(Base):
     media_type         = Column(String(10), nullable=False)           # 'image' | 'video'
     original_filename  = Column(String(255))
     processed_filename = Column(String(255))
-    detected_class     = Column(Enum(AccClass), nullable=False)
+    detected_class     = Column(String(20), nullable=False)
     confidence         = Column(Float, nullable=False)
     bounding_boxes     = Column(JSON)
     snapshot_path      = Column(String(500))
@@ -67,6 +68,8 @@ class DetectionEvent(Base):
     alert_sent         = Column(Boolean, default=False)
     call_triggered     = Column(Boolean, default=False)
     whatsapp_sent      = Column(Boolean, default=False)
+    incident_status    = Column(String(20), default="open", index=True)
+    location           = Column(String(255), default="Unknown")
     created_at         = Column(DateTime, server_default=func.now(), index=True)
 
     user      = relationship("User", back_populates="events")
@@ -96,7 +99,7 @@ class Alert(Base):
 
 
 # ─────────────────────────────────────────────
-# 4. CALL LOGS (TWILIO)
+# 4. LOCAL CALL AUDIT LOGS
 # ─────────────────────────────────────────────
 class CallLog(Base):
     __tablename__ = "call_logs"
@@ -105,7 +108,7 @@ class CallLog(Base):
     detection_id     = Column(Integer, ForeignKey("detection_events.id", ondelete="CASCADE"), nullable=False)
     to_number        = Column(String(20))
     from_number      = Column(String(20))
-    twilio_call_sid  = Column(String(50))
+    call_sid         = Column("call_sid", String(50))
     call_status      = Column(String(30), default="initiated")
     duration_seconds = Column(Integer)
     call_message     = Column(Text)
@@ -159,6 +162,20 @@ class AgentReport(Base):
     whatsapp_sent        = Column(Boolean, default=False, index=True)
     whatsapp_sid         = Column(String(64))
     whatsapp_error       = Column(Text)
+    report_path          = Column(String(500))
     created_at           = Column(DateTime, server_default=func.now(), index=True)
 
     event = relationship("DetectionEvent", back_populates="agent_report")
+
+
+class AuditLog(Base):
+    """Append-only record of agent and operator actions."""
+    __tablename__ = "audit_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    detection_id = Column(Integer, ForeignKey("detection_events.id", ondelete="SET NULL"), index=True)
+    actor = Column(String(80), nullable=False, default="system")
+    action = Column(String(80), nullable=False)
+    status = Column(String(20), nullable=False, default="success")
+    details = Column(JSON)
+    created_at = Column(DateTime, server_default=func.now(), index=True)
