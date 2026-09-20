@@ -4,8 +4,12 @@ video_processor.py – Extract frames → detect → reconstruct annotated video
 import cv2
 import os
 import uuid
+import logging
+from typing import Callable, Optional
 from app.core.detection_engine import DetectionEngine
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class VideoProcessor:
@@ -13,7 +17,9 @@ class VideoProcessor:
     def __init__(self):
         self.engine = DetectionEngine.get_instance()
 
-    def process(self, input_path: str, output_dir: str) -> dict:
+    def process(self, input_path: str, output_dir: str,
+                progress_callback: Optional[Callable[[int, int], None]] = None,
+                frame_callback: Optional[Callable[[object], None]] = None) -> dict:
         """
         Process a video file frame-by-frame through YOLOv12.
 
@@ -54,7 +60,10 @@ class VideoProcessor:
         best_snap   = None
         best_conf   = 0.0
         frame_idx   = 0
-        stride      = 2          # run inference every 2nd frame for speed
+        stride      = max(1, settings.VIDEO_FRAME_STRIDE)
+        confirmation_frames = max(1, settings.VIDEO_CONFIRMATION_FRAMES)
+        consecutive_alerts = 0
+        confirmed_alert = False
 
         try:
             while True:
@@ -63,10 +72,16 @@ class VideoProcessor:
                     break
 
                 frame_idx += 1
+                if progress_callback and (frame_idx == 1 or frame_idx % 5 == 0 or frame_idx == total):
+                    progress_callback(frame_idx, total)
+                if frame_idx > settings.MAX_VIDEO_FRAMES:
+                    raise ValueError("Video exceeds the configured frame limit")
 
                 if frame_idx % stride == 0:
                     result    = self.engine.predict_frame(frame)
                     annotated = result["annotated_frame"]
+                    if frame_callback:
+                        frame_callback(annotated)
                     cls       = result["detected_class"]
                     conf      = result["confidence"]
 
@@ -79,6 +94,13 @@ class VideoProcessor:
                     if conf > best_conf:
                         best_conf = conf
                         best_snap = annotated.copy()
+
+                    if result["alert_required"]:
+                        consecutive_alerts += 1
+                        if consecutive_alerts >= confirmation_frames:
+                            confirmed_alert = True
+                    else:
+                        consecutive_alerts = 0
 
                     writer.write(annotated)
                 else:
@@ -126,5 +148,5 @@ class VideoProcessor:
             "class_stats":      stats,
             "avg_confidence":   avg_conf,
             "fps_processed":    round(fps / stride, 2),
-            "alert_required":   dominant in {"fire", "moderate", "severe"},
+            "alert_required":   confirmed_alert,
         }

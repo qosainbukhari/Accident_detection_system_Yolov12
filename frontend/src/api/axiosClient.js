@@ -2,13 +2,14 @@
  * axiosClient.js – Base Axios instance
  *
  * Features:
- *  - Auto-attaches JWT Bearer token from localStorage on every request
+ *  - Auto-attaches the in-memory JWT Bearer token on every request
  *  - 401 → clears token + redirects to /login
  *  - 422 → flattens Pydantic validation errors into a readable string
  *          and attaches it as error.friendlyMessage
  */
 import axios from "axios";
 import { API_BASE } from "../utils/constants";
+import { clearAccessToken, getAccessToken } from "./tokenStore";
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -18,7 +19,7 @@ const api = axios.create({
 // ── Request: attach JWT ──────────────────────────────────────────
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -37,8 +38,7 @@ api.interceptors.response.use(
 
     // 401 → session expired or invalid token → force re-login
     if (status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
+      clearAccessToken();
       if (window.location.pathname !== "/login") {
         window.location.href = "/login";
       }

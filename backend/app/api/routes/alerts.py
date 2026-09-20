@@ -32,7 +32,7 @@ def get_call_logs(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    """List all Twilio emergency call logs (paginated)."""
+    """List local emergency-call audit logs (paginated)."""
     owner_id = None if user.role == "admin" else user.id
     return crud.get_call_logs(db, skip=skip, limit=limit, user_id=owner_id)
 
@@ -68,16 +68,7 @@ def test_call(
     db: Session = Depends(get_db),
     admin=Depends(require_admin),
 ):
-    """Admin only – trigger a test call using the configured provider."""
-    from app.core.call_service import make_call
-    from app.config import settings
-
-    provider = (settings.CALL_PROVIDER or "mock").strip().lower()
-    if provider in {"mock", "free", "simulation"}:
-        from app.core.call_service import _log_mock_call
-
-        _log_mock_call(event_id=0, detected_class="severe", db=db)
-        return {"message": "Test call logged in free mock mode."}
-
-    make_call(event_id=0, detected_class="severe", db=db)
-    return {"message": "Test call initiated via Twilio."}
+    """Admin only – record a local simulated call audit entry."""
+    from app.core.call_service import _log_mock_call
+    _log_mock_call(event_id=0, detected_class="severe", db=db)
+    return {"message": "Test call logged locally; no external call provider is configured."}

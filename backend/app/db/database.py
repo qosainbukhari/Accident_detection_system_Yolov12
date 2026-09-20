@@ -6,7 +6,9 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 from app.config import settings
 
 engine_options = {"pool_pre_ping": True}
-if not settings.DATABASE_URL.startswith("sqlite"):
+if settings.DATABASE_URL.startswith("sqlite"):
+    engine_options["connect_args"] = {"check_same_thread": False}
+else:
     engine_options.update({"pool_recycle": 3600, "pool_size": 10, "max_overflow": 20})
 
 engine = create_engine(settings.DATABASE_URL, **engine_options)

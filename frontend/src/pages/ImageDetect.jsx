@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { detectionApi } from "../api/detectionApi";
+import { pollAgentReport } from "../api/agentApi";
+import AgentReportCard from "../components/AgentReportCard";
 import DropZone from "../components/DropZone";
 import SeverityBadge from "../components/SeverityBadge";
 import { showEmergencyToast } from "../components/AlertToast";
@@ -15,9 +17,11 @@ export default function ImageDetect() {
   const [preview, setPreview] = useState(null);
   const [result,  setResult]  = useState(null);
   const [loading, setLoading] = useState(false);
+  const [report, setReport] = useState(null);
+  const [agentLoading, setAgentLoading] = useState(false);
 
-  const onFile = (f) => { setFile(f); setPreview(URL.createObjectURL(f)); setResult(null); };
-  const reset  = ()  => { setFile(null); setPreview(null); setResult(null); };
+  const onFile = (f) => { setFile(f); setPreview(URL.createObjectURL(f)); setResult(null); setReport(null); setAgentLoading(false); };
+  const reset  = ()  => { setFile(null); setPreview(null); setResult(null); setReport(null); setAgentLoading(false); };
 
   const detect = async () => {
     if (!file) return;
@@ -25,6 +29,13 @@ export default function ImageDetect() {
     try {
       const { data } = await detectionApi.detectImage(file);
       setResult(data);
+      if (data.agent_pending && data.event_id) {
+        setAgentLoading(true);
+        pollAgentReport(data.event_id)
+          .then(r => { setReport(r); if (r?.whatsapp_sent) toast.success("WhatsApp alert submitted for delivery"); })
+          .catch(() => toast.error("AI emergency report could not be loaded"))
+          .finally(() => setAgentLoading(false));
+      }
       data.alert_triggered
         ? showEmergencyToast(data.detected_class, data.confidence)
         : toast.success("Detection complete");
@@ -108,6 +119,7 @@ export default function ImageDetect() {
               </div>
 
               {/* Bbox table */}
+              <AgentReportCard report={report} loading={agentLoading} />
               {result.bounding_boxes?.length > 0 && (
                 <div className="card p-0 overflow-hidden">
                   <table className="tbl">

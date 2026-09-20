@@ -23,8 +23,9 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Override sqlalchemy.url with the one from .env
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# Override sqlalchemy.url with the one from .env. Alembic uses
+# ConfigParser interpolation, so URL-encoded percent signs must be escaped.
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))
 
 # Target metadata for 'autogenerate'
 target_metadata = Base.metadata
