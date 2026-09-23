@@ -96,3 +96,16 @@ def test_corrupt_video_returns_bad_request():
     )
 
     assert response.status_code == 400
+
+
+def test_incident_pdfs_not_publicly_served_from_static():
+    for path in ("/static/reports/incident-1.pdf", "/static//reports/incident-1.pdf",
+                 "/static/processed/../reports/incident-1.pdf"):
+        assert client.get(path).status_code == 404
+
+
+def test_admin_cannot_deactivate_or_demote_self(admin_user):
+    headers = {"Authorization": f"Bearer {get_token()}"}
+    assert client.delete(f"/users/{admin_user.id}", headers=headers).status_code == 400
+    response = client.put(f"/users/{admin_user.id}", json={"role": "viewer"}, headers=headers)
+    assert response.status_code == 400

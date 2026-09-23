@@ -28,10 +28,12 @@ def update_user(
     user_id: int,
     payload: UserUpdate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
+    admin=Depends(require_admin),
 ):
     """Admin only – update user role or active status."""
     data = payload.model_dump(exclude_none=True)
+    if user_id == admin.id and (data.get("is_active") is False or data.get("role", "admin") != "admin"):
+        raise HTTPException(400, "You cannot deactivate or demote your own account")
     user = crud.update_user(db, user_id, data)
     if not user:
         raise HTTPException(404, f"User #{user_id} not found")
@@ -45,6 +47,8 @@ def delete_user(
     admin=Depends(require_admin),
 ):
     """Admin only – deactivate a user account."""
+    if user_id == admin.id:
+        raise HTTPException(400, "You cannot deactivate your own account")
     data = {"is_active": False}
     user = crud.update_user(db, user_id, data)
     if not user:

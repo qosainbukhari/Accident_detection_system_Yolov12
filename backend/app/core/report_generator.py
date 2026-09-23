@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 from html import escape
 from pathlib import Path
+import uuid
 from typing import Any, Optional
 
 from app.config import settings
@@ -13,7 +14,9 @@ def generate_whatsapp_report_image(event, report: dict, evidence_path: Optional[
 
     output_dir = Path(settings.REPORTS_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / f"whatsapp-incident-{event.id}.png"
+    # Served publicly so the WhatsApp provider can fetch it; the random suffix
+    # keeps other incidents' images from being enumerated by ID.
+    output_path = output_dir / f"whatsapp-incident-{event.id}-{uuid.uuid4().hex}.png"
     width, height = 1200, 1500
     canvas = Image.new("RGB", (width, height), "#f8fafc")
     draw = ImageDraw.Draw(canvas)

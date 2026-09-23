@@ -144,6 +144,7 @@ class VideoProcessor:
             "snapshot_path":    snap_path,
             "total_frames":     total,
             "processed_frames": frame_idx,
+            "detected_frames":  proc_frames,
             "dominant_class":   dominant,
             "class_stats":      stats,
             "avg_confidence":   avg_conf,

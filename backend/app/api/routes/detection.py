@@ -12,6 +12,7 @@ from fastapi import (
     APIRouter, UploadFile, File, Depends,
     HTTPException, BackgroundTasks, Query
 )
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -122,8 +123,8 @@ async def detect_image(
     """
     _check_file(file.filename, ALLOWED_IMG, file.content_type)
 
-    content = await file.read()
     max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    content = await file.read(max_bytes + 1)
     if len(content) > max_bytes:
         raise HTTPException(413, f"File exceeds {settings.MAX_UPLOAD_SIZE_MB} MB limit")
 
@@ -137,8 +138,10 @@ async def detect_image(
         raise HTTPException(413, "Image dimensions exceed the configured pixel limit")
 
     # Run inference
+    # Inference is CPU/GPU-bound; keep it off the event loop so other requests
+    # and live video streams stay responsive.
     engine = DetectionEngine.get_instance()
-    result = engine.predict_frame(frame)
+    result = await run_in_threadpool(engine.predict_frame, frame)
 
     # Save processed (annotated) image
     proc_name = f"img_{uuid.uuid4().hex[:8]}.jpg"

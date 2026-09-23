@@ -4,9 +4,11 @@ Lifespan: initialises DB tables + loads YOLOv12 model at startup
 """
 import os
 import logging
+import posixpath
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -72,6 +74,11 @@ app.add_middleware(
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
+    # Incident PDFs use predictable names; they are only served through the
+    # authenticated, ownership-checked /agent/report/{id}/pdf endpoint.
+    path = posixpath.normpath(request.url.path)
+    if path.startswith("/static/reports/") and path.lower().endswith(".pdf"):
+        return JSONResponse({"detail": "Not Found"}, status_code=404)
     response: Response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
@@ -112,6 +119,7 @@ def health_check():
     return {
         "status":  "ok",
         "model":   "yolov12",
+        "model_loaded": DetectionEngine.get_instance().model is not None,
         "version": "2.1.0",
         "agent":   settings.AGENT_ENABLED,
     }

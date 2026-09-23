@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     ALERT_EMAIL_TO: str = ""
+    # Dashboard URL used for the "View Detection Report" link in alert emails.
+    FRONTEND_URL: str = "http://localhost:5173"
 
 
     # AI emergency agent

@@ -63,6 +63,7 @@ def _send_email(
     subject = f"[EMERGENCY ALERT] {safe_class} Accident Detected - Event #{event_id}"
     conf_pct = round(conf * 100, 1)
     timestamp = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    history_url = escape(f"{settings.FRONTEND_URL.rstrip('/')}/history", quote=True)
 
     image_block = ""
     image_cid = None
@@ -120,7 +121,7 @@ def _send_email(
           </table>
 
           <div style="text-align:center;margin:24px 0;">
-            <a href="http://localhost:5173/history"
+            <a href="{history_url}"
                style="background:#dc2626;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:bold;font-size:16px;">
               View Detection Report
             </a>

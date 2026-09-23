@@ -2,6 +2,7 @@
 detection_engine.py – YOLOv12 Image & Video Inference Engine (Singleton)
 """
 import cv2
+import threading
 import time
 import logging
 import numpy as np
@@ -30,16 +31,22 @@ class DetectionEngine:
     Call DetectionEngine.get_instance() everywhere.
     """
     _instance = None
+    _instance_lock = threading.Lock()
 
     @classmethod
     def get_instance(cls) -> "DetectionEngine":
         if cls._instance is None:
-            cls._instance = cls()
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
 
     def __init__(self):
         model_path = Path(settings.MODEL_PATH)
         self.model = None
+        # Ultralytics predictors are not thread-safe; image requests and video
+        # jobs run in different threads, so inference is serialised.
+        self._predict_lock = threading.Lock()
         if model_path.is_file():
             try:
                 self.model = YOLO(model_path)
@@ -80,13 +87,14 @@ class DetectionEngine:
             }
 
         try:
-            results = self.model(
-                frame,
-                conf=self.conf,
-                iou=self.iou,
-                imgsz=self.sz,
-                verbose=False
-            )[0]
+            with self._predict_lock:
+                results = self.model(
+                    frame,
+                    conf=self.conf,
+                    iou=self.iou,
+                    imgsz=self.sz,
+                    verbose=False
+                )[0]
         except (OSError, RuntimeError, ValueError) as exc:
             logger.warning("Frame inference failed: %s", exc)
             return {

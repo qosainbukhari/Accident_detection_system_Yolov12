@@ -19,9 +19,22 @@ from app.db.database import SessionLocal
 logger = logging.getLogger(__name__)
 _jobs: dict[str, dict[str, Any]] = {}
 _lock = threading.Lock()
+# Finished jobs stay pollable for a while, then are dropped so the in-memory
+# store (which holds the latest JPEG frame per job) does not grow forever.
+JOB_RETENTION_SECONDS = 3600
+
+
+def _prune_finished_jobs() -> None:
+    cutoff = time.time() - JOB_RETENTION_SECONDS
+    with _lock:
+        expired = [job_id for job_id, job in _jobs.items()
+                   if job["status"] in {"completed", "failed"} and job.get("finished_at", 0) < cutoff]
+        for job_id in expired:
+            del _jobs[job_id]
 
 
 def create_job(user_id: int, filename: str, upload_path: str, location: str) -> str:
+    _prune_finished_jobs()
     job_id = uuid.uuid4().hex
     with _lock:
         _jobs[job_id] = {
@@ -73,7 +86,7 @@ def process_job(job_id: str) -> None:
             "user_id": job["user_id"], "media_type": "video", "original_filename": job["filename"],
             "processed_filename": result["output_name"], "detected_class": result["dominant_class"],
             "confidence": result["avg_confidence"], "total_frames": result["total_frames"],
-            "detected_frames": result["processed_frames"], "dominant_class": result["dominant_class"],
+            "detected_frames": result["detected_frames"], "dominant_class": result["dominant_class"],
             "snapshot_path": result["snapshot_path"], "location": job["location"][:255], "processing_ms": 0,
         })
         crud.create_video_log(db, {
@@ -102,12 +115,20 @@ def process_job(job_id: str) -> None:
             "agent_pending": bool(result["alert_required"] and settings.AGENT_ENABLED),
         }
         _update(job_id, status="completed", stage="Complete", progress=100,
-                processed_frames=result["processed_frames"], total_frames=result["total_frames"], result=response)
+                processed_frames=result["processed_frames"], total_frames=result["total_frames"], result=response,
+                latest_frame=None, finished_at=time.time())
     except Exception as exc:  # Keep failures available to the polling client.
         logger.exception("Video job %s failed", job_id)
-        _update(job_id, status="failed", stage="Processing failed", error=str(exc))
+        _update(job_id, status="failed", stage="Processing failed", error=str(exc),
+                latest_frame=None, finished_at=time.time())
     finally:
         db.close()
+        # The original upload is private and no longer needed once the
+        # annotated output and snapshot have been written.
+        try:
+            os.remove(job["upload_path"])
+        except OSError:
+            pass
 
 
 def stream_job(job_id: str):
