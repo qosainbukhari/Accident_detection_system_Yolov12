@@ -216,7 +216,8 @@ def generate_incident_pdf(event, report, image_path: Optional[str] = None) -> st
     ]
     if image_path and Path(image_path).is_file():
         evidence = Image(str(image_path), width=160 * mm, height=88 * mm, kind="proportional")
-        story.extend([Paragraph("Annotated visual evidence", section), KeepTogether([evidence, Spacer(1, 4)])])
+        # Keep the heading with the image so it is never stranded at a page end.
+        story.append(KeepTogether([Paragraph("Annotated visual evidence", section), evidence, Spacer(1, 4)]))
     story.extend([
         Paragraph("Operational notice", section),
         Paragraph("This automated assessment supports emergency triage and does not replace on-scene verification or instructions from authorised emergency services.", body),

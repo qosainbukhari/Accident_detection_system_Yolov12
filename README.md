@@ -105,7 +105,7 @@ frontend/src/context/         Authentication state
 database/                    Initial MySQL schema and seed script
 ml_training/                 Training notebook, metrics, model artifacts
 docker-compose.yml           MySQL, backend, and frontend services
-docs/SYSTEM_DETAILS.md       Complete implementation walkthrough
+docs/system.md               Complete implementation walkthrough
 ```
 
 ## Model contract
@@ -127,4 +127,4 @@ If a new model changes labels or order, update the weights, `classes.yaml`, `Det
 - Email and WhatsApp delivery are configuration-dependent and can fail; inspect persisted delivery status.
 - Video jobs are currently in memory, suitable for a single-process demo but not multi-worker production.
 
-Read [SYSTEM_DETAILS.md](docs/SYSTEM_DETAILS.md) for the full frontend, backend, API, model, database, agent, alert, storage, security, and development explanation.
+Read [system.md](docs/system.md) for the full frontend, backend, API, model, database, agent, alert, storage, security, and development explanation.

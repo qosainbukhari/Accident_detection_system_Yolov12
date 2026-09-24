@@ -1,32 +1,30 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { alertApi } from "../api/alertApi";
+import { useAuth } from "../context/AuthContext";
 import StatsCard from "../components/StatsCard";
 import SeverityBadge from "../components/SeverityBadge";
-import { fmtDate } from "../utils/helpers";
-import { CHART_COLORS, CLASS_CONFIG } from "../utils/constants";
+import PageHeader, { EmptyState } from "../components/PageHeader";
+import ChartTooltip from "../components/ChartTooltip";
+import { buildDailySeries, fmtDate } from "../utils/helpers";
+import { CHART_AXIS, CHART_COLORS, CHART_GRID, CLASS_CONFIG } from "../utils/constants";
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid,
 } from "recharts";
 import {
-  EyeIcon, BellAlertIcon, PhoneIcon, CalendarDaysIcon, SparklesIcon, ChatBubbleLeftRightIcon,
+  ShieldExclamationIcon, EnvelopeIcon, CalendarDaysIcon, SparklesIcon,
+  ChatBubbleLeftRightIcon, ViewfinderCircleIcon, PhotoIcon, VideoCameraIcon,
+  ArrowRightIcon, ChartPieIcon, ArrowTrendingUpIcon, InboxIcon,
 } from "@heroicons/react/24/outline";
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-[#161b27] border border-white/10 rounded-xl px-3 py-2 text-xs shadow-xl">
-      <p className="text-slate-400 mb-1">{label}</p>
-      {payload.map(p => (
-        <p key={p.name} style={{ color: p.color }} className="font-semibold">
-          {p.name}: {p.value}
-        </p>
-      ))}
-    </div>
-  );
-};
+function greeting() {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+}
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [stats,    setStats]    = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -37,151 +35,209 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Timeline map
-  const timelineMap = {};
-  timeline.forEach(({ date, class: cls, count }) => {
-    if (!timelineMap[date]) timelineMap[date] = { date };
-    timelineMap[date][cls] = count;
-  });
-  const areaData = Object.values(timelineMap).slice(-7);
+  const areaData = buildDailySeries(timeline, 7);
 
-  // Pie data
   const pieData = stats
     ? Object.entries(CLASS_CONFIG)
         .filter(([k]) => k !== "no_detection")
-        .map(([k, v]) => ({ name: v.label, value: stats.class_counts?.[k] ?? 0, color: v.color }))
-        .filter(d => d.value > 0)
+        .map(([k, v]) => ({ key: k, name: v.label, value: stats.class_counts?.[k] ?? 0, color: v.color }))
     : [];
+  const pieTotal = pieData.reduce((sum, d) => sum + d.value, 0);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="spinner" />
-      </div>
-    );
-  }
+  if (loading) return <DashboardSkeleton />;
 
   return (
-    <div className="space-y-5 anim-fade-up">
-
-      {/* Header */}
-      <div>
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">System overview and detection analytics</p>
-      </div>
+    <div className="space-y-6 anim-fade-up">
+      <PageHeader
+        eyebrow="Command centre"
+        title={`${greeting()}, ${user?.username ?? "operator"}`}
+        subtitle="Live overview of detections, alerts and AI emergency assessments."
+        actions={<>
+          <Link to="/detect/video" className="btn-ghost btn-sm"><VideoCameraIcon className="w-4 h-4" /> Analyse video</Link>
+          <Link to="/detect/image" className="btn-primary btn-sm"><PhotoIcon className="w-4 h-4" /> Analyse image</Link>
+        </>}
+      />
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-        <StatsCard label="Total Detections" value={stats?.total}       icon={EyeIcon}          accent="#6366f1" />
-        <StatsCard label="Today"            value={stats?.today}       icon={CalendarDaysIcon}  accent="#10b981" />
-        <StatsCard label="Email Alerts"     value={stats?.alerts_sent} icon={BellAlertIcon}     accent="#ef4444" />
-        <StatsCard label="Emergency Calls"  value={stats?.calls_made}  icon={PhoneIcon}         accent="#8b5cf6" />
-        <StatsCard label="AI Reports"        value={stats?.ai_reports}   icon={SparklesIcon}      accent="#d946ef" />
-        <StatsCard label="WhatsApp Sent"     value={stats?.whatsapp_sent} icon={ChatBubbleLeftRightIcon} accent="#22c55e" />
-      </div>
-
-      {/* Confidence bar */}
-      <div className="card">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Avg Detection Confidence</p>
-          <span className="text-lg font-bold text-white">{stats?.avg_confidence ?? 0}%</span>
-        </div>
-        <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-          <div className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 transition-all"
-               style={{ width: `${stats?.avg_confidence ?? 0}%` }} />
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4 stagger">
+        <StatsCard label="Total detections" value={stats?.total}         icon={ViewfinderCircleIcon}    accent="#38bdf8" />
+        <StatsCard label="Today"            value={stats?.today}         icon={CalendarDaysIcon}        accent="#a78bfa" />
+        <StatsCard label="Avg confidence"   value={stats?.avg_confidence} icon={ArrowTrendingUpIcon}    accent="#34d399" suffix="%" decimals={1} />
+        <StatsCard label="Email alerts"     value={stats?.alerts_sent}   icon={EnvelopeIcon}            accent="#f97316" />
+        <StatsCard label="AI reports"       value={stats?.ai_reports}    icon={SparklesIcon}            accent="#c084fc" />
+        <StatsCard label="WhatsApp sent"    value={stats?.whatsapp_sent} icon={ChatBubbleLeftRightIcon} accent="#22c55e" />
       </div>
 
       {/* Charts */}
-      <div className="grid xl:grid-cols-5 gap-4">
-
-        {/* Area — 3/5 */}
-        <div className="card xl:col-span-3">
-          <p className="text-sm font-semibold text-slate-200 mb-4">Detections — Last 7 Days</p>
-          {areaData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={areaData}>
-                <defs>
+      <div className="grid xl:grid-cols-3 gap-4">
+        <div className="card xl:col-span-2 p-0">
+          <div className="card-header">
+            <div>
+              <p className="card-title">Detection activity</p>
+              <p className="card-subtitle">Incidents per class over the last 7 days</p>
+            </div>
+            <Legend />
+          </div>
+          <div className="p-5 pt-4">
+            {timeline.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <AreaChart data={areaData} margin={{ left: -18, right: 20, top: 8 }}>
+                  <defs>
+                    {Object.entries(CHART_COLORS).map(([k, c]) => (
+                      <linearGradient key={k} id={`g-${k}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"   stopColor={c} stopOpacity={0.35} />
+                        <stop offset="100%" stopColor={c} stopOpacity={0} />
+                      </linearGradient>
+                    ))}
+                  </defs>
+                  <CartesianGrid stroke={CHART_GRID} vertical={false} />
+                  <XAxis dataKey="label" tick={CHART_AXIS} axisLine={false} tickLine={false} dy={8} />
+                  <YAxis allowDecimals={false} tick={CHART_AXIS} axisLine={false} tickLine={false} />
+                  <Tooltip content={<ChartTooltip />} cursor={{ stroke: "rgba(148,163,184,0.25)" }} />
                   {Object.entries(CHART_COLORS).map(([k, c]) => (
-                    <linearGradient key={k} id={`g-${k}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor={c} stopOpacity={0.25} />
-                      <stop offset="95%" stopColor={c} stopOpacity={0}    />
-                    </linearGradient>
+                    <Area key={k} type="monotone" dataKey={k} name={k} stroke={c} strokeWidth={2.5}
+                      fill={`url(#g-${k})`} dot={false} activeDot={{ r: 5, strokeWidth: 0 }} />
                   ))}
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
-                <XAxis dataKey="date" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis allowDecimals={false} tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                {Object.entries(CHART_COLORS).map(([k, c]) => (
-                  <Area key={k} type="monotone" dataKey={k} name={k}
-                    stroke={c} strokeWidth={2}
-                    fill={`url(#g-${k})`} dot={false} />
-                ))}
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <EmptyState text="Run some detections to see trends" />
-          )}
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyState icon={ArrowTrendingUpIcon} title="No activity yet" text="Run a detection to start building the trend." />
+            )}
+          </div>
         </div>
 
-        {/* Pie — 2/5 */}
-        <div className="card xl:col-span-2 flex flex-col">
-          <p className="text-sm font-semibold text-slate-200 mb-4">Class Distribution</p>
-          {pieData.length > 0 ? (
-            <>
-              <ResponsiveContainer width="100%" height={160}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%"
-                    innerRadius={48} outerRadius={72}
-                    paddingAngle={3} dataKey="value">
-                    {pieData.map((e, i) => <Cell key={i} fill={e.color} />)}
-                  </Pie>
-                  <Tooltip formatter={(v) => [v, "Events"]}
-                    contentStyle={{ background: "#161b27", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="mt-3 space-y-2">
-                {pieData.map(d => (
-                  <div key={d.name} className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
-                      <span className="text-slate-400">{d.name}</span>
-                    </div>
-                    <span className="text-slate-300 font-semibold">{d.value}</span>
-                  </div>
-                ))}
+        <div className="card p-0 flex flex-col">
+          <div className="card-header">
+            <div>
+              <p className="card-title">Class distribution</p>
+              <p className="card-subtitle">All-time share by severity</p>
+            </div>
+          </div>
+          {pieTotal > 0 ? (
+            <div className="p-5 flex-1 flex flex-col">
+              <div className="relative">
+                <ResponsiveContainer width="100%" height={190}>
+                  <PieChart>
+                    <Pie data={pieData.filter(d => d.value > 0)} cx="50%" cy="50%"
+                      innerRadius={62} outerRadius={86} paddingAngle={3} dataKey="value"
+                      stroke="none" cornerRadius={4}>
+                      {pieData.filter(d => d.value > 0).map(e => <Cell key={e.key} fill={e.color} />)}
+                    </Pie>
+                    <Tooltip content={<ChartTooltip />} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <p className="text-3xl font-bold text-white num">{pieTotal}</p>
+                  <p className="text-[11px] text-slate-400 uppercase tracking-wider">incidents</p>
+                </div>
               </div>
-            </>
+              <div className="mt-4 space-y-3">
+                {pieData.map(d => {
+                  const pct = pieTotal ? Math.round((d.value / pieTotal) * 100) : 0;
+                  return (
+                    <div key={d.key}>
+                      <div className="flex items-center justify-between text-sm mb-1.5">
+                        <span className="flex items-center gap-2 text-slate-300">
+                          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: d.color }} />{d.name}
+                        </span>
+                        <span className="text-slate-100 font-semibold num">{d.value}
+                          <span className="text-slate-500 font-normal ml-1.5">{pct}%</span>
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: d.color }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           ) : (
-            <EmptyState text="No detections yet" />
+            <EmptyState icon={ChartPieIcon} title="No detections yet" />
           )}
         </div>
       </div>
 
       {/* Recent events */}
-      {stats?.recent_events?.length > 0 && (
-        <div className="card">
-          <p className="text-sm font-semibold text-slate-200 mb-3">Recent Detections</p>
-          <div className="divide-y divide-white/[0.04]">
-            {stats.recent_events.map(ev => (
-              <div key={ev.id} className="flex items-center justify-between py-2.5 gap-3">
-                <SeverityBadge cls={ev.detected_class} confidence={ev.confidence} size="sm" />
-                <span className="text-xs text-slate-600 capitalize flex-1">{ev.media_type}</span>
-                <span className="text-[11px] text-slate-600">{fmtDate(ev.created_at)}</span>
-              </div>
-            ))}
+      <div className="card p-0 overflow-hidden">
+        <div className="card-header">
+          <div>
+            <p className="card-title">Recent incidents</p>
+            <p className="card-subtitle">Latest detections across images and video</p>
           </div>
+          <Link to="/history" className="text-xs font-semibold text-brand-300 hover:text-brand-200 flex items-center gap-1">
+            View all <ArrowRightIcon className="w-3.5 h-3.5" />
+          </Link>
         </div>
-      )}
+        {stats?.recent_events?.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="tbl">
+              <thead><tr><th>Incident</th><th>Classification</th><th>Source</th><th>Priority</th><th>Email alert</th><th className="text-right">Detected</th></tr></thead>
+              <tbody>
+                {stats.recent_events.map(ev => {
+                  const cfg = CLASS_CONFIG[ev.detected_class] ?? CLASS_CONFIG.no_detection;
+                  return (
+                    <tr key={ev.id}>
+                      <td className="font-mono text-slate-100 font-medium">INC-{String(ev.id).padStart(4, "0")}</td>
+                      <td><SeverityBadge cls={ev.detected_class} confidence={ev.confidence} size="sm" /></td>
+                      <td className="capitalize text-slate-300">
+                        <span className="inline-flex items-center gap-1.5">
+                          {ev.media_type === "video" ? <VideoCameraIcon className="w-4 h-4 text-slate-500" /> : <PhotoIcon className="w-4 h-4 text-slate-500" />}
+                          {ev.media_type}
+                        </span>
+                      </td>
+                      <td>
+                        <span className="text-xs font-semibold" style={{ color: cfg.text }}>{cfg.severity}</span>
+                      </td>
+                      <td>
+                        {ev.alert_sent
+                          ? <span className="badge border-emerald-500/30 bg-emerald-500/10 text-emerald-300">Sent</span>
+                          : <span className="text-slate-500 text-xs">—</span>}
+                      </td>
+                      <td className="text-right text-slate-400 whitespace-nowrap">{fmtDate(ev.created_at)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState icon={InboxIcon} title="No incidents recorded"
+            text="Upload an image or video to run the YOLO model and see results here."
+            action={<Link to="/detect/image" className="btn-primary btn-sm"><ShieldExclamationIcon className="w-4 h-4" /> Run first detection</Link>} />
+        )}
+      </div>
     </div>
   );
 }
 
-function EmptyState({ text }) {
+function Legend() {
   return (
-    <div className="flex-1 flex items-center justify-center py-10">
-      <p className="text-xs text-slate-600">{text}</p>
+    <div className="hidden sm:flex items-center gap-4">
+      {Object.entries(CHART_COLORS).map(([k, c]) => (
+        <span key={k} className="flex items-center gap-1.5 text-xs text-slate-400">
+          <span className="w-2.5 h-2.5 rounded-sm" style={{ background: c }} />
+          {CLASS_CONFIG[k].label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <div className="skeleton h-3 w-28" />
+        <div className="skeleton h-7 w-72" />
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-4">
+        {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton h-[108px] rounded-2xl" />)}
+      </div>
+      <div className="grid xl:grid-cols-3 gap-4">
+        <div className="skeleton h-[340px] rounded-2xl xl:col-span-2" />
+        <div className="skeleton h-[340px] rounded-2xl" />
+      </div>
     </div>
   );
 }

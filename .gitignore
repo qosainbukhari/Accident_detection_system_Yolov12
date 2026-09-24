@@ -67,6 +67,7 @@ Dataset/
 backend/static/uploads/
 backend/static/processed/
 backend/static/snapshots/
+backend/static/reports/
 backend/data/uploads/
 backend/data/processed/
 static/uploads/

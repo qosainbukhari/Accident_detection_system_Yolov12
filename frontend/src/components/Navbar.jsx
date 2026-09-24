@@ -1,58 +1,70 @@
-import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import api from "../api/axiosClient";
+import { Bars3Icon, PlusIcon } from "@heroicons/react/24/outline";
 
-export default function Navbar() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+const TITLES = {
+  "/dashboard":    ["Overview", "Dashboard"],
+  "/analytics":    ["Overview", "Analytics"],
+  "/detect/image": ["Detection", "Image Analysis"],
+  "/detect/video": ["Detection", "Video Analysis"],
+  "/history":      ["Response", "Incidents"],
+  "/alerts":       ["Response", "Alerts Center"],
+  "/users":        ["System", "Users"],
+  "/settings":     ["System", "Settings"],
+};
+
+/** Polls the public /health endpoint so the demo shows real model status. */
+function useSystemHealth() {
+  const [health, setHealth] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    const check = () => api.get("/health")
+      .then(r => alive && setHealth(r.data))
+      .catch(() => alive && setHealth({ status: "down" }));
+    check();
+    const id = setInterval(check, 30_000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+  return health;
+}
+
+export default function Navbar({ onMenu }) {
+  const { pathname } = useLocation();
+  const [section, title] = TITLES[pathname] ?? ["", ""];
+  const health = useSystemHealth();
+
+  const online = health?.status === "ok" && health?.model_loaded !== false;
+  const statusText = !health ? "Checking…" : online ? "Model online" : health.status === "ok" ? "Model not loaded" : "API offline";
+  const statusColor = !health ? "bg-slate-400" : online ? "bg-emerald-400" : "bg-severe";
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 h-14
-                       bg-[#0f1117]/90 backdrop-blur-md
-                       border-b border-white/[0.06]">
-      <div className="flex items-center justify-between h-full px-5">
+    <header className="sticky top-0 z-30 h-16 bg-ink-950/80 backdrop-blur-xl border-b border-white/[0.06]">
+      <div className="h-full px-4 sm:px-6 lg:px-8 flex items-center gap-3">
+        <button onClick={onMenu} className="lg:hidden p-2 -ml-2 text-slate-300 hover:text-white rounded-lg">
+          <Bars3Icon className="w-6 h-6" />
+        </button>
 
-        {/* Brand */}
-        <Link to="/dashboard" className="flex items-center gap-2.5">
-          {/* Logo mark */}
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center shadow-glow">
-            <svg viewBox="0 0 20 20" fill="white" className="w-4 h-4">
-              <path fillRule="evenodd"
-                d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z"
-                clipRule="evenodd" />
-            </svg>
+        <div className="min-w-0">
+          <p className="text-[11px] text-slate-500 leading-none">{section}</p>
+          <p className="text-[15px] font-semibold text-white leading-tight mt-1 truncate">{title}</p>
+        </div>
+
+        <div className="ml-auto flex items-center gap-2.5">
+          <div className="hidden sm:flex items-center gap-2 pl-2.5 pr-3 py-1.5 rounded-full
+                          bg-white/[0.03] border border-white/[0.07] text-xs text-slate-300"
+               title={health?.version ? `API v${health.version}` : undefined}>
+            <span className="relative flex w-2 h-2">
+              {online && <span className={`absolute inset-0 rounded-full ${statusColor} animate-ping2`} />}
+              <span className={`relative w-2 h-2 rounded-full ${statusColor}`} />
+            </span>
+            {statusText}
           </div>
-          <div className="hidden sm:block">
-            <p className="text-sm font-bold text-white leading-none">AccidentAI</p>
-            <p className="text-[10px] text-slate-500 leading-none mt-0.5">YOLOv12 Detection</p>
-          </div>
-        </Link>
-
-        {/* Right: user */}
-        {user && (
-          <div className="flex items-center gap-3">
-            <div className="hidden sm:flex flex-col items-end">
-              <span className="text-sm font-medium text-slate-200 leading-none">{user.username}</span>
-              <span className="text-[10px] text-slate-500 leading-none mt-0.5 capitalize">{user.role}</span>
-            </div>
-
-            {/* Avatar */}
-            <div className="w-8 h-8 rounded-full bg-indigo-600/20 border border-indigo-500/30
-                            flex items-center justify-center text-indigo-300 text-sm font-bold uppercase">
-              {user.username?.[0]}
-            </div>
-
-            {/* Logout */}
-            <button
-              onClick={() => { logout(); navigate("/login"); }}
-              title="Sign out"
-              className="p-2 text-slate-500 hover:text-slate-200 hover:bg-white/5
-                         rounded-lg transition-all duration-150"
-            >
-              <ArrowRightOnRectangleIcon className="w-4.5 h-4.5" />
-            </button>
-          </div>
-        )}
+          <Link to="/detect/image" className="btn-primary btn-sm">
+            <PlusIcon className="w-4 h-4" />
+            <span className="hidden sm:inline">New analysis</span>
+          </Link>
+        </div>
       </div>
     </header>
   );

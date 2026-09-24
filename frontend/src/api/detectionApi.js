@@ -4,8 +4,9 @@ export const detectionApi = {
   detectImage: (file, location = "Unknown", onUploadProgress) => {
     const form = new FormData();
     form.append("file", file);
-    form.append("location", location);
+    // The backend reads location as a query parameter, not a form field.
     return api.post("/detection/image", form, {
+      params: { location },
       headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress,
     });
@@ -14,8 +15,8 @@ export const detectionApi = {
   detectVideo: (file, location = "Unknown", onUploadProgress) => {
     const form = new FormData();
     form.append("file", file);
-    form.append("location", location);
     return api.post("/detection/video", form, {
+      params: { location },
       headers: { "Content-Type": "multipart/form-data" },
       onUploadProgress,
     });

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./context/AuthContext";
 import Navbar  from "./components/Navbar";
@@ -16,12 +17,13 @@ import Users        from "./pages/Users";
 
 function AppLayout() {
   const { user } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
   if (!user) return <Navigate to="/login" replace />;
   return (
     <div className="page-root">
-      <Navbar />
-      <Sidebar />
+      <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
       <main className="main-content">
+        <Navbar onMenu={() => setMenuOpen(true)} />
         <div className="page-inner">
           <Outlet />
         </div>

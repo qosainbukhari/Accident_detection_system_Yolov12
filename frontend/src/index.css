@@ -1,111 +1,165 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  *, *::before, *::after { box-sizing: border-box; }
-
-  html { scroll-behavior: smooth; font-size: 15px; }
+  html { scroll-behavior: smooth; font-size: 15px; color-scheme: dark; }
 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    @apply bg-[#0f1117] text-slate-100 antialiased;
-    -webkit-font-smoothing: antialiased;
+    @apply bg-ink-950 text-slate-200 antialiased;
+    font-feature-settings: "cv11", "ss01";
   }
 
-  /* ── Scrollbar ─────────────────────────────────────────────── */
-  ::-webkit-scrollbar       { width: 5px; height: 5px; }
+  ::selection { @apply bg-brand-500/30 text-white; }
+
+  :focus-visible { @apply outline-none ring-2 ring-brand-400/70 ring-offset-2 ring-offset-ink-950; }
+
+  ::-webkit-scrollbar       { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #2d3748; border-radius: 99px; }
-  ::-webkit-scrollbar-thumb:hover { background: #4a5568; }
+  ::-webkit-scrollbar-thumb { @apply bg-ink-700 rounded-full border-2 border-solid border-ink-950; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ink-600; }
 }
 
 @layer components {
 
   /* ── Layout shell ───────────────────────────────────────────── */
-  .page-root    { @apply min-h-screen bg-[#0f1117]; }
-  .main-content { @apply ml-[220px] pt-[56px] min-h-screen; }
-  .page-inner   { @apply p-6 max-w-[1300px]; }
+  .page-root    { @apply min-h-screen bg-ink-950; }
+  .main-content { @apply lg:pl-[248px] min-h-screen; }
+  .page-inner   { @apply px-4 sm:px-6 lg:px-8 py-6 max-w-[1400px] mx-auto; }
+
+  /* Subtle grid backdrop used on hero / auth screens. */
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(148,163,184,0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148,163,184,0.06) 1px, transparent 1px);
+    background-size: 44px 44px;
+  }
 
   /* ── Cards ──────────────────────────────────────────────────── */
   .card {
-    @apply bg-[#161b27] border border-white/[0.06] rounded-2xl p-6;
+    @apply bg-ink-850 border border-white/[0.07] rounded-2xl p-5 shadow-card;
   }
   .card-sm {
-    @apply bg-[#161b27] border border-white/[0.06] rounded-xl p-4;
+    @apply bg-ink-850 border border-white/[0.07] rounded-xl p-4 shadow-card;
   }
+  .card-hover {
+    @apply transition-all duration-200 hover:border-white/[0.14] hover:shadow-lift hover:-translate-y-0.5;
+  }
+  .card-header {
+    @apply flex items-center justify-between gap-3 px-5 py-4 border-b border-white/[0.06];
+  }
+  .card-title    { @apply text-sm font-semibold text-slate-100; }
+  .card-subtitle { @apply text-xs text-slate-400 mt-0.5; }
 
   /* ── Buttons ────────────────────────────────────────────────── */
   .btn {
     @apply inline-flex items-center justify-center gap-2 font-semibold
            rounded-xl transition-all duration-150 text-sm select-none
-           disabled:opacity-40 disabled:cursor-not-allowed;
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none
+           active:scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700
-           text-white px-5 py-2.5 shadow-lg shadow-indigo-900/40;
+    @apply btn bg-brand-500 hover:bg-brand-400 text-ink-950 px-5 py-2.5 shadow-brand;
   }
   .btn-danger {
-    @apply btn bg-rose-600 hover:bg-rose-500 active:bg-rose-700
-           text-white px-5 py-2.5 shadow-lg shadow-rose-900/40;
+    @apply btn bg-severe hover:bg-red-400 text-white px-5 py-2.5 shadow-danger;
   }
   .btn-ghost {
-    @apply btn border border-white/10 text-slate-300 hover:bg-white/5
-           hover:text-white px-4 py-2.5;
+    @apply btn border border-white/[0.1] bg-white/[0.02] text-slate-300
+           hover:bg-white/[0.06] hover:text-white hover:border-white/[0.18] px-4 py-2.5;
   }
+  .btn-sm { @apply px-3 py-1.5 text-xs rounded-lg; }
 
   /* ── Inputs ─────────────────────────────────────────────────── */
   .input {
-    @apply w-full bg-[#0f1117] border border-white/10 text-slate-100
+    @apply w-full bg-ink-900 border border-white/[0.1] text-slate-100
            rounded-xl px-4 py-2.5 text-sm placeholder-slate-500
-           focus:outline-none focus:border-indigo-500 focus:ring-1
-           focus:ring-indigo-500/50 transition-all duration-150;
+           focus:outline-none focus:border-brand-400/70 focus:ring-4
+           focus:ring-brand-500/15 transition-all duration-150;
   }
   .input-error {
-    @apply border-rose-500/70 focus:border-rose-500 focus:ring-rose-500/40;
+    @apply border-severe/70 focus:border-severe focus:ring-severe/15;
+  }
+  .label {
+    @apply block text-xs font-medium text-slate-300 mb-1.5;
   }
 
   /* ── Badges ─────────────────────────────────────────────────── */
   .badge {
-    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full
-           text-xs font-semibold;
+    @apply inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full
+           text-[11px] font-semibold border;
   }
 
-  /* ── Section heading ────────────────────────────────────────── */
+  /* ── Headings ───────────────────────────────────────────────── */
+  .eyebrow {
+    @apply text-[11px] font-semibold uppercase tracking-[0.14em] text-brand-400;
+  }
   .page-title {
-    @apply text-xl font-bold text-white tracking-tight;
+    @apply text-2xl font-bold text-white tracking-tight;
   }
   .page-subtitle {
-    @apply text-sm text-slate-400 mt-0.5;
+    @apply text-sm text-slate-400 mt-1;
+  }
+  .stat-label {
+    @apply text-[11px] font-medium uppercase tracking-wider text-slate-400;
   }
 
   /* ── Table ──────────────────────────────────────────────────── */
   .tbl { @apply w-full text-sm; }
-  .tbl thead tr { @apply border-b border-white/[0.06]; }
-  .tbl th { @apply text-left px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wider; }
-  .tbl td { @apply px-4 py-3 text-slate-300; }
-  .tbl tbody tr { @apply border-b border-white/[0.04] hover:bg-white/[0.02] transition-colors; }
+  .tbl thead tr { @apply border-b border-white/[0.06] bg-white/[0.015]; }
+  .tbl th { @apply text-left px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider whitespace-nowrap; }
+  .tbl td { @apply px-5 py-3.5 text-slate-300; }
+  .tbl tbody tr { @apply border-b border-white/[0.04] last:border-0 hover:bg-white/[0.025] transition-colors; }
 
-  /* ── Divider ─────────────────────────────────────────────────── */
+  /* ── Tabs / segmented control ───────────────────────────────── */
+  .segmented {
+    @apply inline-flex gap-1 bg-ink-900 border border-white/[0.07] rounded-xl p-1;
+  }
+  .segmented-item {
+    @apply flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold
+           text-slate-400 hover:text-slate-100 transition-all;
+  }
+  .segmented-item-active {
+    @apply bg-ink-700 text-white shadow-card;
+  }
+
   .divider { @apply border-t border-white/[0.06]; }
 
-  /* ── Spinner ─────────────────────────────────────────────────── */
   .spinner {
-    @apply w-8 h-8 border-[3px] border-indigo-500/30 border-t-indigo-500
+    @apply w-8 h-8 border-[3px] border-brand-500/20 border-t-brand-400
            rounded-full animate-spin;
   }
+
+  .skeleton {
+    @apply bg-white/[0.05] rounded-lg animate-pulse;
+  }
+
+  .num { font-variant-numeric: tabular-nums; }
 }
 
 /* ── Animations ─────────────────────────────────────────────── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(14px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
-.anim-fade-up { animation: fadeUp  0.3s ease both; }
-.anim-fade-in { animation: fadeIn  0.25s ease both; }
+.anim-fade-up { animation: fadeUp 0.35s cubic-bezier(.2,.8,.2,1) both; }
+.anim-fade-in { animation: fadeIn 0.25s ease both; }
+
+/* Stagger direct children of a grid for a polished first paint. */
+.stagger > * { animation: fadeUp 0.4s cubic-bezier(.2,.8,.2,1) both; }
+.stagger > *:nth-child(2) { animation-delay: 40ms; }
+.stagger > *:nth-child(3) { animation-delay: 80ms; }
+.stagger > *:nth-child(4) { animation-delay: 120ms; }
+.stagger > *:nth-child(5) { animation-delay: 160ms; }
+.stagger > *:nth-child(6) { animation-delay: 200ms; }
+.stagger > *:nth-child(n+7) { animation-delay: 240ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

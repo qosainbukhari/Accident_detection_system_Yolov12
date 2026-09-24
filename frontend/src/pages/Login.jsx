@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { authApi } from "../api/authApi";
 import toast from "react-hot-toast";
-import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, EyeSlashIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
+import Brand from "../components/Brand";
+import SeverityBadge from "../components/SeverityBadge";
 
 // ─────────────────────────────────────────────────────────────────
 // Field is defined OUTSIDE Login so React never remounts it on
@@ -13,10 +15,7 @@ import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 function Field({ label, name, type, value, onChange, placeholder, error, autoComplete, children }) {
   return (
     <div>
-      <label htmlFor={name}
-        className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">
-        {label}
-      </label>
+      <label htmlFor={name} className="label">{label}</label>
       <div className="relative">
         <input
           id={name}
@@ -31,9 +30,7 @@ function Field({ label, name, type, value, onChange, placeholder, error, autoCom
         />
         {children}
       </div>
-      {error && (
-        <p className="text-rose-400 text-[11px] mt-1">⚠ {error}</p>
-      )}
+      {error && <p className="text-red-300 text-xs mt-1.5">{error}</p>}
     </div>
   );
 }
@@ -126,140 +123,98 @@ export default function Login() {
 
   // ── render ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#0f1117] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-ink-950 grid lg:grid-cols-2">
 
-      {/* Background glow */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-                        w-[600px] h-[600px] bg-indigo-600/5 rounded-full blur-3xl" />
-      </div>
+      {/* Brand panel */}
+      <div className="relative hidden lg:flex flex-col justify-between p-10 overflow-hidden border-r border-white/[0.06]">
+        <div className="absolute inset-0 bg-grid [mask-image:radial-gradient(ellipse_at_top_left,black,transparent_75%)]" />
+        <div className="absolute -top-40 -left-40 w-[520px] h-[520px] rounded-full bg-brand-500/10 blur-3xl" />
+        <Link to="/" className="relative w-fit"><Brand /></Link>
 
-      <div className="relative w-full max-w-[380px] anim-fade-up">
-
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12
-                          bg-indigo-600 rounded-2xl mb-4 shadow-glow">
-            <svg viewBox="0 0 20 20" fill="white" className="w-6 h-6">
-              <path fillRule="evenodd"
-                d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0
-                   5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682
-                   -.057-1.35-.166-2.001A11.954 11.954 0 0110 1.944zM11 14a1 1 0
-                   11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z"
-                clipRule="evenodd" />
-            </svg>
+        <div className="relative max-w-lg">
+          <div className="relative rounded-2xl overflow-hidden border border-white/10 shadow-lift">
+            <img src="/demo-detection.jpg" alt="Model detecting a severe crash" className="w-full aspect-[16/10] object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-ink-950/90 via-transparent" />
+            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between">
+              <span className="rounded-full bg-ink-950/85 backdrop-blur"><SeverityBadge cls="severe" confidence={0.93} pulse /></span>
+              <span className="text-xs text-slate-300 font-medium">Live model output</span>
+            </div>
           </div>
-          <h1 className="text-xl font-bold text-white">AccidentAI</h1>
-          <p className="text-slate-500 text-sm mt-1">Emergency Response Platform</p>
+          <h2 className="text-3xl font-bold text-white mt-8 leading-tight tracking-tight">
+            Detect road accidents in seconds.<br />
+            <span className="text-brand-300">Alert responders automatically.</span>
+          </h2>
+          <div className="grid grid-cols-3 gap-3 mt-8">
+            {[["92.5%", "Precision"], ["89.9%", "mAP@50"], ["3", "Severity classes"]].map(([v, l]) => (
+              <div key={l} className="rounded-xl bg-white/[0.03] border border-white/[0.07] p-3">
+                <p className="text-xl font-bold text-white num">{v}</p>
+                <p className="text-xs text-slate-400">{l}</p>
+              </div>
+            ))}
+          </div>
         </div>
 
-        {/* Card */}
-        <div className="bg-[#161b27] border border-white/[0.07] rounded-2xl p-7 shadow-2xl">
+        <p className="relative text-xs text-slate-500">Final Year Project · AI Accident Detection &amp; Emergency Response</p>
+      </div>
+
+      {/* Form panel */}
+      <div className="relative flex items-center justify-center p-6">
+        <div className="absolute inset-0 lg:hidden bg-grid [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)]" />
+        <div className="relative w-full max-w-[400px] anim-fade-up">
+          <div className="lg:hidden mb-10 flex justify-center"><Brand /></div>
+
+          <h1 className="text-2xl font-bold text-white tracking-tight">
+            {mode === "login" ? "Welcome back" : "Create an account"}
+          </h1>
+          <p className="text-sm text-slate-400 mt-1.5">
+            {mode === "login" ? "Sign in to the emergency response console." : "New accounts start with viewer access."}
+          </p>
 
           {/* Mode tabs */}
-          <div className="flex bg-[#0f1117] rounded-xl p-1 mb-6 gap-1">
+          <div className="segmented w-full mt-7 mb-6">
             {["login", "register"].map(m => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => switchMode(m)}
-                className={`flex-1 py-2 rounded-lg text-sm font-semibold capitalize transition-all
-                  ${mode === m
-                    ? "bg-indigo-600 text-white shadow"
-                    : "text-slate-500 hover:text-slate-300"
-                  }`}
-              >
-                {m === "login" ? "Sign In" : "Register"}
+              <button key={m} type="button" onClick={() => switchMode(m)}
+                className={`segmented-item flex-1 justify-center py-2 ${mode === m ? "segmented-item-active" : ""}`}>
+                {m === "login" ? "Sign in" : "Register"}
               </button>
             ))}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <Field label="Username" name="username" type="text" value={form.username} onChange={handleChange}
+              placeholder="your_username" error={errors.username} autoComplete="username" />
 
-            {/* Username */}
-            <Field
-              label="Username"
-              name="username"
-              type="text"
-              value={form.username}
-              onChange={handleChange}
-              placeholder="your_username"
-              error={errors.username}
-              autoComplete="username"
-            />
-
-            {/* Email — register only */}
             {mode === "register" && (
-              <Field
-                label="Email"
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={handleChange}
-                placeholder="you@example.com"
-                error={errors.email}
-                autoComplete="email"
-              />
+              <Field label="Email" name="email" type="email" value={form.email} onChange={handleChange}
+                placeholder="you@example.com" error={errors.email} autoComplete="email" />
             )}
 
-            {/* Password */}
-            <Field
-              label="Password"
-              name="password"
-              type={showPwd ? "text" : "password"}
-              value={form.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              error={errors.password}
-              autoComplete={mode === "login" ? "current-password" : "new-password"}
-            >
-              {/* Show / hide toggle */}
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => setShowPwd(v => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2
-                           text-slate-600 hover:text-slate-400 transition-colors"
-              >
-                {showPwd
-                  ? <EyeSlashIcon className="w-4 h-4" />
-                  : <EyeIcon      className="w-4 h-4" />
-                }
+            <Field label="Password" name="password" type={showPwd ? "text" : "password"} value={form.password}
+              onChange={handleChange} placeholder="••••••••" error={errors.password}
+              autoComplete={mode === "login" ? "current-password" : "new-password"}>
+              <button type="button" tabIndex={-1} onClick={() => setShowPwd(v => !v)}
+                aria-label={showPwd ? "Hide password" : "Show password"}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors">
+                {showPwd ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
               </button>
             </Field>
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary w-full mt-1 py-2.5"
-            >
+            <button type="submit" disabled={loading} className="btn-primary w-full py-3 mt-2">
               {loading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white
-                                   rounded-full animate-spin shrink-0" />
-                  Verifying…
-                </>
+                <><span className="w-4 h-4 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin shrink-0" /> Verifying…</>
               ) : (
-                mode === "login" ? "Sign In" : "Create Account"
+                <>{mode === "login" ? "Sign in" : "Create account"} <ArrowRightIcon className="w-4 h-4" /></>
               )}
             </button>
           </form>
 
-          {/* Hint */}
           {mode === "login" && (
-            <p className="text-center text-[11px] text-slate-600 mt-4">
-              Default&nbsp;
-              <code className="text-slate-500 bg-white/[0.05] px-1.5 py-0.5 rounded">
-                admin / admin123
-              </code>
-            </p>
+            <div className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3">
+              <span className="text-xs text-slate-400">Demo account</span>
+              <code className="text-xs font-mono text-slate-200">admin / admin123</code>
+            </div>
           )}
         </div>
-
-        <p className="text-center text-[11px] text-slate-700 mt-5">
-          Backend → <code className="text-slate-600">localhost:8000</code>
-        </p>
       </div>
     </div>
   );
